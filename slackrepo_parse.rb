@@ -92,7 +92,7 @@ begin
           start_junit_testcase(package_name, junit)
           junit.write("    <skipped />\n")
           write_junit_testcase_body(junit, 'system-out', package_body)
-        elsif result =~ /^:-\(/
+        elsif result =~ /^:-\(/ || result =~ /^Missing dependency:/
           failure_count += 1
 
           start_junit_testcase(package_name, junit)
@@ -108,7 +108,7 @@ begin
 
         package_body = ''
         result = ''
-      elsif line =~ /^:-/
+      elsif line =~ /^:-/ || line =~ /^Missing dependency:/
         result = line
       else
         package_body += line
