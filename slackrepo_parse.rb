@@ -92,7 +92,7 @@ begin
           start_junit_testcase(package_name, junit)
           junit.write("    <skipped />\n")
           write_junit_testcase_body(junit, 'system-out', package_body)
-        elsif result =~ /^:-\(/ || result =~ /^Missing dependency:/
+        elsif result =~ /^:-\(/ || result =~ /^Missing dependency:/ || result =~ /^ERROR:/
           failure_count += 1
 
           start_junit_testcase(package_name, junit)
@@ -108,7 +108,7 @@ begin
 
         package_body = ''
         result = ''
-      elsif line =~ /^:-/ || line =~ /^Missing dependency:/
+      elsif line =~ /^:-/ || line =~ /^Missing dependency:/ || line =~ /^ERROR:/
         result = line
       else
         package_body += line
@@ -120,6 +120,8 @@ begin
     when FOOTER_WARNINGS
       if line =~ /^$/
         state = DONE
+      elsif line =~ /Packages with tag .* are already installed$/
+        # ignored
       else
         package, warning = /^\s*(.*?): (.*)$/.match(line).captures
         directory, package_name = package.split(%r{/})
