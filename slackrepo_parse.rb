@@ -2,7 +2,7 @@
 #
 # The MIT License (MIT)
 #
-# Copyright (c) 2017 Andrew Clemons, Wellington New Zealand
+# Copyright (c) 2017,2019 Andrew Clemons, Wellington New Zealand
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -127,7 +127,7 @@ begin
         directory, package_name = package.split(%r{/})
 
         checkstyle.write("<file name='#{directory}/#{package_name}.SlackBuild'>\n")
-        checkstyle.write("  <error severity='info' message='#{warning}'/>\n")
+        checkstyle.write("  <error severity='info' message='#{warning.gsub("'", "&apos;").gsub('"', "&quot;")}'/>\n")
         checkstyle.write("</file>\n")
       end
     end
