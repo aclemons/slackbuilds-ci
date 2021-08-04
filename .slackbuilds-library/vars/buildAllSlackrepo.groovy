@@ -20,18 +20,19 @@ def call() {
     }
 
     def projects = null
-    if ("true".equals(env.DISABLE_PROJECT_LISTING)) {
-        projects = ["${packageName}"]
-    } else {
+    if ("true".equals(env.ENABLE_PACKAGE_LISTING)) {
+        // experimental project listing - currently very slow since we have to stop and start a container for each package to build
         docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --privileged -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo} -v ${env.SLACKREPO_SOURCES}:/var/lib/slackrepo/${optRepo}/source") {
             ansiColor('xterm') {
-                withEnv(["PROJECT=${packageName}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}"]) {
-                    sh(returnStatus: true, script: libraryResource('build_project_list_with_slackrepo.sh'))
+                withEnv(["PACKAGE=${packageName}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}"]) {
+                    sh(returnStatus: true, script: libraryResource('build_package_list_with_slackrepo.sh'))
                 }
             }
         }
 
         projects = sh(returnStdout: true, script: "sort -r tmp/project_list").split()
+    } else {
+        projects = ["${packageName}"]
     }
 
     // re-init log/tmp
