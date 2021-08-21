@@ -55,7 +55,11 @@ node('master') {
         checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: 'git://git.slackbuilds.org/slackbuilds.git']]]
 
         dir('slackbuilds') {
-            buildAllSlackrepo()
+            if ("true".equals(env.UPDATE)) {
+              updateAllSlackrepo()
+            } else {
+              buildAllSlackrepo()
+            }
         }
     }
 }
