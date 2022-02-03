@@ -22,6 +22,8 @@
 
 def libraryPath = '.slackbuilds-library'
 
+properties([disableConcurrentBuilds()])
+
 node('master') {
     echo "Loading local shared library"
     checkout scm
