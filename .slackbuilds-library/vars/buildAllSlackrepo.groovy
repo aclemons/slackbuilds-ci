@@ -32,7 +32,7 @@ def call() {
 
         projects = sh(returnStdout: true, script: "sort -r tmp/project_list").split()
     } else {
-        projects = ["${packageName}"]
+        projects = packageName.split(" ")
     }
 
     // re-init log/tmp
