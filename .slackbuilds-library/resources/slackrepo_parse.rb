@@ -67,6 +67,7 @@ begin
   result = ''
 
   File.foreach(input_file) do |line|
+    line = line.encode("UTF-8", invalid: :replace, undef: :replace)
     case state
     when START
       state = PACKAGE_HEADER if line =~ /={80}/
