@@ -53,8 +53,9 @@ node('master') {
 node('master') {
     stage('build') {
         def branch = env.BRANCH ?: 'master'
+        def gitRepo = env.GIT_REPO ?: 'git://git.slackbuilds.org/slackbuilds.git'
 
-        checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: 'git://git.slackbuilds.org/slackbuilds.git']]]
+        checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: gitRepo]]]
 
         dir('slackbuilds') {
             if ("true".equals(env.UPDATE)) {
