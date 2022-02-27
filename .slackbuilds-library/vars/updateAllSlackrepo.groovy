@@ -23,7 +23,7 @@ def call() {
 
       docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --privileged -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo} -v ${env.SLACKREPO_SOURCES}:/var/lib/slackrepo/${optRepo}/source") {
         ansiColor('xterm') {
-          if ("true".equals(env.SEED_UID_GID) {
+          if ("true".equals(env.SEED_UID_GID)) {
             createAllUsersAndGroups()
           }
 
