@@ -48,6 +48,10 @@ def call() {
             echo "Building ${it}"
 
             docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --privileged -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo} -v ${env.SLACKREPO_SOURCES}:/var/lib/slackrepo/${optRepo}/source") {
+                if ("true".equals(env.SEED_UID_GID) {
+                    createAllUsersAndGroups()
+                }
+
                 ansiColor('xterm') {
                     withEnv(["PROJECT=${it}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}"]) {
                         sh(returnStatus: true, script: libraryResource('build_with_slackrepo.sh'))
