@@ -9,7 +9,5 @@ fi
 
 mkdir -p log
 
-docker run --rm  -v "$(pwd)":/mnt --entrypoint sh koalaman/shellcheck-alpine:latest -c 'shellcheck --format checkstyle --severity warning $(find . -name "*.SlackBuild")'  > log/shellcheck.xml
-
-sed -i '/LIBDIRSUFFIX appears unused/d' log/shellcheck.xml
-sed -i 's,\./mnt/,,g' log/shellcheck.xml
+docker run --rm  -v "$(pwd)":/mnt --entrypoint sh koalaman/shellcheck-alpine:latest -c 'shellcheck --format checkstyle --severity warning $(find . -name "*.SlackBuild")' | sed '/LIBDIRSUFFIX appears unused/d' | sed 's,\./mnt/,,g' > log/shellcheck.xml
+  
