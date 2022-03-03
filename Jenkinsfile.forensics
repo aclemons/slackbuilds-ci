@@ -57,8 +57,6 @@ node('master') {
 
         checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: gitRepo]]]
 
-        dir('slackbuilds') {
-            mineRepository scm: gitRepo
-        }
+        mineRepository scm: 'slackbuilds'
     }
 }
