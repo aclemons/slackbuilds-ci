@@ -20,6 +20,7 @@ else
 fi
 OPT_REPO=${OPT_REPO:-}
 BUILD_ARCH=${BUILD_ARCH:-}
+SETARCH=${SETARCH:-}
 
 sed -i '/stty sane/d' /usr/sbin/slackrepo
 sed -i '/^PKGBACKUP/d' "/etc/slackrepo/slackrepo_$OPT_REPO.conf"
@@ -51,9 +52,9 @@ CWD="$(pwd)"
 mkdir -p "tmp/$PROJECT"
 
 if [[ $UPDATE == "true" ]] ; then
-  su -l -c "slackrepo update" | tee "tmp/$PROJECT/build"
+  su -l -c "$SETARCH slackrepo update" | tee "tmp/$PROJECT/build"
 else
-  su -l -c "slackrepo build $PROJECT" | tee "tmp/$PROJECT/build"
+  su -l -c "$SETARCH slackrepo build $PROJECT" | tee "tmp/$PROJECT/build"
 fi
 
 sed -i -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" "tmp/$PROJECT/build"
