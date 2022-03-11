@@ -1,0 +1,1321 @@
+#!/usr/bin/perl -w
+
+# ChangeLog:
+
+# 0.3 20200420 bkw:
+# - Check github URLs for validity.
+
+# 0.2 20200103 bkw:
+# - Use "git rev-parse" to decide if we're in a git repo, because
+#   "git status" traverses the whole repo looking for untracked files.
+#   It does this even if you use -uno (it won't *print* the untracked
+#   files, but it still searches for them). Thanks to alienBOB for cluing
+#   me in to using rev-parse for this.
+# - Skip the junkfiles check when we're in a git repo. It's more
+#   annoying than it is useful.
+# - Allow possible -e/-u arguments in the shebang.
+# - Avoid false positives when the script does a "cd $PKG" and then
+#   uses relative paths for install/*.
+# - Require VERSION= to appear within the first 10 non-comment/non-blank
+#   lines, and don't check it anywhere else in the script.
+# - Allow scripts to skip lint checks via ###sbolint on/off comments.
+
+# 0.1 20141114 bkw, Initial release.
+
+$VERSION="0.3";
+
+# generate man page with:
+# pod2man --stderr -r0.2 -s1 -c"SBo Maintainer Tools" sbolint > sbolint.1
+
+# This script is meant to be fairly self-contained, prefer not to
+# require a huge pile of perl module dependencies. In some cases this
+# means using system() or backticks or such (e.g. to run tar, instead of
+# using Archive::Tar). Please don't "improve" the script by using a ton
+# of modules. The POSIX module ships with perl, not afraid of using that.
+
+# future options:
+# -l list packages with errs/warnings, don't give details
+# possibly some way to selectively disable the checks (does anyone
+# really need this?)
+
+# future ideas for checks:
+# - REQUIRES= packages have to exist? annoying if you're working on a batch
+#   of stuff to be submitted together.
+# - Validate images, e.g. icon.png or .xpm or such. ImageMagick's identify
+#   command can tell a non-image or a wrong-format image (a .jpg filename
+#   that's actually a PNG image), but it doesn't detect truncated images.
+#   Also we have to parse its stdout/stderr, it returns 0.
+
+=pod
+
+=head1 NAME
+
+sbolint - check SlackBuild directories or tarballs for common errors.
+
+=head1 SYNOPSIS
+
+B<sbolint> [-q] [-u] [-n] [build [build ...]]
+
+=head1 DESCRIPTION
+
+sbolint checks for common errors in SlackBuilds.org scripts. It's
+intended for slackbuild authors and maintainers, and can cut down on
+"There was a problem with your upload" errors from the submission form.
+
+The [build] arguments must be either directories or tarballs, each
+containing a SlackBuild script, slack-desc, README, and .info file.
+With no [build] arguments, the current directory is checked.
+
+sbolint will flag errors for problems that would prevent the build from
+being accepted by the upload form (or by the SBo admins, if if passes
+the upload checks). There may also be warnings, which are things that
+(probably) won't stop your build from being accepted, but may cause the
+SBo admins extra work.
+
+sbolint was not written by the SlackBuilds.org team, and shares no code
+with the upload form's submission checker. Lack of errors/warnings from
+sbolint does not guarantee that your build will be accepted!
+
+sbolint doesn't check built packages, and never executes the build
+script. If you want a lint tool for binary Slackware packages, try
+pprkut's B<lintpkg>.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-q>
+
+Quiet. Suppresses 'xxx checks out OK' and the total errors/warnings summary.
+
+=item B<-u>
+
+URL check. Uses B<curl> to make HTTP HEAD requests for the B<HOMEPAGE>,
+B<DOWNLOAD>, and B<DOWNLOAD_x86_64> links. This won't guarantee that
+the links are good, but some kinds of failure (e.g. site down, 404)
+means they're definitely bad. Unfortunately a lot of sites have stopped
+responding to HEAD requests in the name of "security", so your mileage
+man vary.
+
+=item B<-n>
+
+Suppress warnings. Only errors will be listed. This also affects the
+exit status (see below).
+
+=back
+
+=head1 CHECKS
+
+For tar files only:
+
+=over 4
+
+=item -
+
+File size must not be bigger than the upload form's limit (currently one
+megabyte).
+
+=item -
+
+File must be a tar archive, possibly compressed with gzip, bzip2, or xz,
+extractable by the B<tar>(1) command.
+
+=item -
+
+Filename extension must match compression type.
+
+=item -
+
+Archive must contain a directory with the same name as the archive's base name,
+e.g. I<foo.tar.gz> must contain I<foo/>. Everything else in the archive must be
+inside this directory.
+
+=item -
+
+Archive must contain I<dirname/Idirname.SlackBuild>.
+
+=back
+
+For all builds:
+
+=over 4
+
+=item -
+
+The SlackBuild, .info, README files must have Unix \n line endings (not
+DOS \r\n), and the last line of each must have a \n.
+
+=item -
+
+The SlackBuild script must exist, with mode 0755 (or 0644, if in a git repo),
+and be a I<#!/bin/bash> script.
+
+=item -
+
+The script must contain the standard variable assignements for PRGNAM,
+VERSION, BUILD, and TAG.
+
+=item -
+
+I<PRGNAM> in the script must match I<PRGNAM> in the .info file. Both must
+match the script name (I<PRGNAM.SlackBuild>) and the directory name.
+
+=item -
+
+I<VERSION> must match the I<VERSION> in the .info file.
+
+=item -
+
+TAG=${TAG:-_SBo} must occur in the script.
+
+=item -
+
+The I<VERSION> and I<BUILD> variables must respect the environment.
+
+=item -
+
+The script must install the slack-desc in $PKG/install.
+
+=item -
+
+If there is a doinst.sh script, the SlackBuild must install it to I<$PKG/install>.
+
+=item -
+
+Template boilerplate comments should be removed, e.g. I<"REMOVE THIS ENTIRE BLOCK OF TEXT">
+or I<"Automatically determine the architecture we're building on">.
+
+=item -
+
+Script must contain a B<makepkg> command.
+
+=item -
+
+README must exist and have mode 0644.
+
+=item -
+
+slack-desc must exist and have mode 0644.
+
+=item -
+
+slack-desc contents must match the SBo template, including the "handy-ruler",
+comments, and correct spacing/indentation.
+
+=item -
+
+.info file must exist, have mode 0644, and match the SBo template.
+
+=item -
+
+.info file URLs must be valid URLs (for a very loose definition of "valid": they
+must begin with B<ftp://>, B<http://>, or B<https://>).
+
+=item -
+
+Optionally, .info file URLs can be checked for existence with an HTTP HEAD
+request (see the B<-u> option).
+
+=back
+
+The following tests are only done when sbolint's starting directory
+was NOT in a git repo:
+
+=over 4
+
+=item -
+
+Any files other than the .SlackBuild, .info, slack-desc, and README are
+checked for permissions (should be 0644) and excessive size.
+
+=item -
+
+The source archive(s) must not exist. Also sbolint attempts to detect
+extracted source trees (but isn't all that good at it).
+
+=item -
+
+Files named 'build.log' or 'strace.out*' must not exist. The B<sbrun>
+tool creates these.
+
+=back
+
+The rationale for skipping the above tests when in a git repo is that
+maintainers will be using git to track files and push changes, so we
+don't need to check them here.
+
+=head1 EXIT STATUS
+
+Exit status from sbolint will normally be 0 (success) if there were no
+errors or warnings in any of the builds checked. With the B<-n> option,
+exit status will be 0 if there are no errors.
+
+Exit status 1 indicates there was at least one warning or error (or, with
+B<-n>, at least one error).
+
+Any other exit status means sbolint itself failed somehow (e.g. called
+with nonexistent filename).
+
+=head1 BUGS
+
+Probably quite a few. Watch this space for details.
+
+=head1 AUTHOR
+
+B. Watson (yalhcru at gmail dot com, or Urchlay on Freenode IRC)
+
+=head1 SEE ALSO
+
+B<sbofixinfo>(1), B<sbosearch>(1)
+
+=cut
+
+use POSIX qw/getcwd/;
+
+@boilerplate = (
+	qr/#\s*REMOVE THIS ENTIRE BLOCK OF TEXT/,
+	qr/#\s*replace with (?:version:name) of program/,
+	qr/#\s*the "_SBo" is required/,
+	qr/#\s*Automatically determine the architecture we're building on/,
+	qr/#\s*Unless \$ARCH is already set,/,
+	qr/#\s*For consistency's sake, use this/,
+	qr/#\s*Drop the package in \/tmp/,
+	qr/#\s*Exit on most errors/,
+	qr/#\s*If you prefer to do selective error checking with/,
+	qr/#\s*Your application will probably need/,
+	qr/#\s*Compile the application and install it into the/,
+	qr/#\s*Strip binaries and libraries - this can be done with/,
+	qr/#\s*Compress man pages$/,
+	qr/#\s*Compress info pages and remove the/,
+	qr/#\s*Copy program documentation into the package/,
+	qr/#\s*Copy the slack-desc \(and a custom doinst\.sh if necessary\)/,
+	qr/#\s*Make the package; be sure to leave it in/,
+);
+
+# this was scraped from the HTML source for the upload form:
+$MAX_TARBALL_SIZE = 1048576;
+
+($SELF = $0) =~ s,.*/,,;
+
+$buildname = $build = "";
+$g_warncount = 0;
+$g_errcount = 0;
+$warncount = 0;
+$errcount = 0;
+
+$tempdir = 0;
+
+our %info = (); # has to be global, check_info sets it, check_script needs it
+
+# main() {
+#check_github_url("testing", $_) for @ARGV;
+#exit 0;
+
+while(@ARGV && ($ARGV[0] =~ /^-/)) {
+	my $opt = shift;
+	$opt =~ /^-u/ && do { $url_head = 1; next; };
+	$opt =~ /^-d/ && do { $url_download = 1; next; };
+	$opt =~ /^--?q(uiet)?/ && do { $quiet = 1; next; };
+	$opt =~ /^-$/ && do { $stdin = 1; next; };
+	$opt =~ /^--?h(elp)?/ && do { usage(); exit 0; };
+	$opt =~ /^-n$/ && do { $nowarn = 1; next; };
+	die_usage("Unrecognized option '$opt'");
+}
+
+if($url_head && $url_download) {
+	die_usage("-u and -d options are mutually exclusive");
+}
+
+if($url_head || $url_download) {
+	if(system("curl --version > /dev/null") != 0) {
+		die "$SELF: -u and -d options require curl, can't find it in your \$PATH.\n";
+	}
+}
+
+if($stdin) {
+	@ARGV = <STDIN>;
+	chomp for @ARGV;
+}
+
+push @ARGV, "." unless @ARGV;
+
+# are we in a git repo? build scripts are mode 0644 there, plus
+# the junkfile check is skipped.
+$in_git_repo = system("git rev-parse >/dev/null 2>/dev/null") == 0;
+
+for(@ARGV) {
+	run_checks($_);
+	$g_errcount += $errcount;
+	$g_warncount += $warncount;
+
+	if(!$quiet) {
+		if($errcount == 0 and $warncount == 0) {
+			print "$buildname checks out OK\n";
+		} else {
+			print "$buildname: errors $errcount, warnings $warncount\n";
+		}
+	}
+}
+
+# print total errs/warns only if >1 build checked
+if(!$quiet && @ARGV > 1) {
+	print "Total errors: $g_errcount\n";
+	print "Total warnings: $g_warncount\n" unless $nowarn;
+}
+
+exit ($g_errcount > 0 || (!$nowarn && $g_warncount > 0));
+# }
+
+sub dequote {
+	my $a = shift;
+	#warn "dequote arg: $a\n";
+	$a =~ s/^("|')(\S+)(\1)$/$2/;
+	#warn "dequote ret: $a\n";
+	return $a;
+}
+
+sub logmsg {
+	my $severity = shift;
+	my $format = shift;
+	printf("$buildname: $severity: $format\n", @_);
+}
+
+sub log_error {
+	logmsg("ERR", @_);
+	$errcount++;
+}
+
+sub log_warning {
+	return if $nowarn;
+	logmsg("WARN", @_);
+	$warncount++;
+}
+
+sub usage {
+	if(@_) {
+		warn "$SELF: $_\n" for @_;
+	}
+
+	warn <<EOF;
+
+$SELF - check SlackBuilds.org scripts for common problems.
+
+Usage: $SELF [-q] [-u] [-n] <build <build ...>>
+
+builds may be directories or tarballs. If no build arguments given,
+. (current directory) is assumed. Use - to read a list of tarballs/dirs
+from stdin.
+
+Options:
+
+-q  Quiet: only emit errors/warnings, no 'checks out OK' or totals.
+-u  URL Check: use HTTP HEAD request to verify download/homepage URLs exist.
+-n  Suppress warnings, log only errors.
+
+See the man page for more details. If you don't have the man page, you
+can generate it with:
+
+pod2man --stderr -s1 -cSBoStuff -r$VERSION /path/to/sbolint > sbolint.1
+EOF
+# not yet:
+#-d  URL Download: as -u, plus download & check md5sums of download URLs.
+}
+
+sub die_usage {
+	usage(@_);
+	exit 1;
+}
+
+sub chdir_or_die {
+	chdir($_[0]) or die "$SELF: chdir($_[0]): $!\n";
+}
+
+sub make_temp_dir {
+	return if $tempdir;
+	my $tmp = $ENV{TMP} || "/tmp";
+	$tempdir = "$tmp/$SELF." . int(rand(2**32-1));
+	system("rm -rf $tempdir");
+	system("mkdir -p $tempdir");
+	if(! -d $tempdir) {
+		die "$SELF: can't create temp dir $tempdir\n";
+	}
+}
+
+sub rm_temp_dir {
+	if($tempdir && (-d $tempdir)) {
+		system("rm -rf $tempdir");
+		$tempdir = 0;
+	}
+}
+
+sub check_tarball_mime {
+	my $file = shift;
+
+	### This stuff is a little pedantic. It also relies on having a recent-ish
+	### version of GNU file (the one in Slack 14.1 works fine).
+	my %types = (
+			'tar' => 'application/x-tar',
+			'tar.gz' => 'application/x-gzip',
+			'tar.bz2' => 'application/x-bzip2',
+			'tar.xz' => 'application/x-xz',
+	);
+
+	(my $basename = $file) =~ s,.*/,,;
+	my (undef, $ext) = split /\./, $basename, 2;
+	my $mime = `file --brief --mime-type $file`;
+	chomp $mime;
+
+	if(!grep { $_ eq $mime } values %types) {
+		log_error("$file is not a tarball (mime type is '$mime')");
+	} elsif(!$ext) {
+		log_error("$file: filename has no extension (will be rejected by upload form)");
+	} elsif($types{$ext} ne $mime) {
+		log_error("$file mime type '$mime' doesn't match filename (should be $types{$ext})");
+	} elsif($ext ne 'tar') {
+		my $realmime = `file -z --brief --mime-type $file`;
+		chomp $realmime;
+		if($realmime ne 'application/x-tar') {
+			log_error("$file doesn't contain a tar archive (content mime type is $realmime, should be application/x-tar)");
+		}
+	}
+}
+
+sub check_tarball {
+	my $file = shift;
+
+	### First, mime type checks. None of this will be fatal (no return 0 on error).
+	check_tarball_mime($file);
+
+	### one more pre-extraction check:
+	if(-s "$file" > $MAX_TARBALL_SIZE) {
+		log_warning("$file is larger than $MAX_TARBALL_SIZE bytes, upload may be rejected");
+	}
+
+	### now call tar to list the contents, and start returning 0 on failure.
+	my @list = split "\n", `tar tf $file`;
+	if($?) {
+		log_error("$file: tar failed to list contents");
+		return 0;
+	}
+
+	if(!@list) {
+		log_error("$file is empty archive?");
+		return 0;
+	}
+
+	if($list[0] ne "$buildname/") {
+		log_error("$file not a SBo-compliant tarball, first element should be '$buildname/', not '$list[0]'");
+		return 0;
+	}
+
+	my $foundsb = 0;
+	shift @list; # 1st element is dirname/, we already checked it
+	for(@list) {
+		my $bn = quotemeta($buildname); # some builds have + in the name
+		if(not /^$bn\//) {
+			log_error("$file not a SBo-compliant tarball, contains extra junk '$_'");
+			return 0;
+		}
+
+		if(/^$bn\/$bn.SlackBuild$/) {
+			$foundsb = 1;
+		}
+	}
+
+	if(not $foundsb) {
+		log_error("$file not a SBo-compliant tarball, doesn't contain '$buildname/$buildname.SlackBuild'");
+		return 0;
+	}
+
+	return 1;
+}
+
+sub extract_tarball {
+	my $file = shift;
+	$file = `readlink -n -e $file`;
+	make_temp_dir();
+	chdir_or_die($tempdir);
+	system("tar xf $file");
+	return "$tempdir/$buildname";
+}
+
+# run_checks will extract its argument (then cd to it) if it's a tarball,
+# otherwise cd to its argument if it's a dir, otherwise error.
+sub run_checks {
+	$build = shift;
+	my $oldcwd = getcwd();
+
+	$errcount = $warncount = 0;
+
+	if(-f $build || -l $build) {
+		($buildname = $build) =~ s,\.tar(\..*)?$,,;
+		$buildname =~ s,.*/,,;
+		if(check_tarball($build)) {
+			chdir_or_die(extract_tarball($build));
+		} else {
+			return 0;
+		}
+	} elsif(-d $build) {
+		chdir_or_die($build);
+	} else {
+		die_usage "'$build' not a file or a directory.";
+	}
+
+	# last component of directory is the build name
+	$buildname = `readlink -n -e .`;
+	$buildname =~ s,.*/,,;
+
+	my @checks = (
+		\&check_readme,
+		\&check_slackdesc,
+		\&check_info,
+		\&check_script,
+		\&check_images,
+	);
+
+	# if we're in a git repo, it's assumed we're going to track extra
+	# files with git, and use git to update the build, not tar it up
+	# and use the web form.
+	push @checks, \&check_junkfiles unless $in_git_repo;
+	for(@checks) {
+		$_->($build);
+	}
+
+	chdir_or_die($oldcwd);
+	rm_temp_dir();
+}
+
+sub check_mode {
+	my ($file, $wantmode) = @_;
+	if(! -e $file) {
+		log_error("$file does not exist");
+		return 0;
+	}
+
+	my $gotmode = 07777 & ((stat($file))[2]);
+	if($wantmode != $gotmode) {
+		log_error("$file should be mode %04o, not %04o", $wantmode, $gotmode);
+		return 0;
+	}
+
+	return 1;
+}
+
+sub check_crlf {
+	my $file = shift;
+	for(@_) {
+		if(/\r/) {
+			log_error("$file has DOS-style CRLF line endings");
+			return 0;
+		}
+	}
+	return 1;
+}
+
+sub check_and_read {
+	my ($file, $mode) = @_;
+
+	my $crlf_err;
+	my @lines;
+	my $lastline_nonl;
+
+	check_mode($file, $mode);
+
+	if(open my $fh, "<$file") {
+		while(<$fh>) {
+			$lastline_nonl = 1 unless /\n$/;
+			chomp;
+			$crlf_err = 1 if s/\r$//;
+			push @lines, $_;
+		}
+		if(scalar @lines == 0) {
+			log_error("$file exists but is empty");
+		}
+	}
+
+	log_error("$file has DOS-style CRLF line endings") if $crlf_err;
+	log_error("$file has no newline at EOF") if $lastline_nonl;
+	return @lines;
+}
+
+# 20220205 bkw: don't complain about long lines if they're URLs,
+# not much we can do about them.
+sub check_readme {
+	my @lines = check_and_read("README", 0644);
+	if(grep { !/^\s*(ftp|https?):\/\// && length > 72 } @lines) {
+		log_warning("README has lines >72 characters");
+	}
+	# TODO: check encoding (must be ASCII or UTF-8)
+}
+
+# the slack-desc checking code offends me (the author), on the one hand it's
+# overly complex, and on the other hand it assumes the slack-desc is at
+# least close to being right...
+sub check_slackdesc {
+	my @lines = check_and_read("slack-desc", 0644);
+	return unless scalar @lines;
+
+	my $lineno = 1;
+
+	if($lines[0] =~ /^# HOW TO EDIT THIS FILE:$/) {
+		shift @lines;
+		$lineno++;
+	} else {
+		log_warning("slack-desc doesn't start with how-to-edit comment");
+	}
+
+	my $count = 0;
+	while($lines[0] =~ /^#/) {
+		$count++;
+		$lineno++;
+		shift @lines;
+	}
+
+	if($count != 5) {
+		log_warning("slack-desc doesn't have standard how-to-edit stanza");
+	}
+
+	$count = 0;
+	while($lines[0] eq "") {
+		$count++;
+		$lineno++;
+		shift @lines;
+	}
+
+	if($count == 0) {
+		log_warning("slack-desc missing blank line before handy-ruler");
+	} elsif($count > 1) {
+		log_warning("slack-desc has extra blank lines before handy-ruler");
+	}
+
+	if($lines[0] =~ /handy-ruler/) {
+		my $ruler = shift @lines;
+		$lineno++;
+		my ($spaces, $prefix, $hr, $suffix, $junk) = ($ruler =~ /^( *)(\|-+)(handy-ruler)(-+\|)(.*)$/);
+
+		if(length($spaces) != length($buildname)) {
+			log_error("slack-desc:$lineno: handy-ruler has wrong number of indent spaces (%d, should be %d)",
+					length($spaces),
+					length($buildname));
+		}
+
+		if(length($junk) > 0) {
+			log_error("slack-desc:$lineno: handy-ruler has %d characters of trailing junk after last |", length($junk));
+		}
+
+		my $rlen = length($prefix . $hr . $suffix);
+		if($rlen != 72) {
+			log_error("slack-desc:$lineno: handy-ruler must be 72 characters, not %d", $rlen);
+		} elsif(length($prefix) != 6) {
+			log_error("slack-desc:$lineno: handy-ruler malformed, has '$prefix' instead of '|-----'");
+		}
+	} else {
+		log_error("slack-desc missing handy-ruler");
+	}
+
+	$count = 0;
+	for(@lines) {
+		$count++;
+		if(my ($prefix, $text) = /^([^\s]+:)(.*)/) {
+			if($prefix ne "$buildname:") {
+				log_error("slack-desc:$lineno: wrong prefix '$prefix', should be '$buildname:'");
+			} elsif($text =~ /^\s+$/) {
+				log_error("slack-desc:$lineno: trailing whitespace after colon, on otherwise-blank line");
+			} elsif(length($text) > 72) {
+				log_error("slack-desc:$lineno: text too long, %d characters, should be <= 72", length($text));
+			} elsif(length($text) && $text !~ /^ /) {
+				log_error("slack-desc:$lineno: missing whitespace after colon, on non-blank line");
+			}
+
+			my $bn = quotemeta($buildname); # some builds have + in the name
+			if(($count == 1) && ($text !~ /^ $bn \(.+\)$/)) {
+				log_warning("slack-desc:$lineno: first description line should be '$buildname: $buildname (short desc)'");
+			}
+		} else {
+			log_error("slack-desc:$lineno: malformed line in description section");
+		}
+
+		$lineno++;
+	}
+
+	if($count < 11) {
+		log_error("slack-desc only has $count description lines, should be 11 (add some empties)");
+	} elsif($count > 11) {
+		log_error("slack-desc has too many description lines ($count, should be 11)");
+	}
+}
+
+# This is a damn mess. Needs refactoring badly.
+sub check_info {
+	my $file = $buildname . ".info";
+	my @lines = check_and_read($file, 0644);
+	return unless scalar @lines;
+
+	my $lineno = 0;
+	my $file_lineno = 0;
+	my @expected = qw/PRGNAM VERSION HOMEPAGE
+	                  DOWNLOAD MD5SUM
+	                  DOWNLOAD_x86_64 MD5SUM_x86_64
+	                  REQUIRES MAINTAINER EMAIL/;
+	my $next_exp = 0;
+	my @keys;
+	my $continuation = 0;
+
+	# parse and bitch about bad syntax...
+	for(@lines) {
+		$file_lineno++;
+		if($continuation) {
+			s/^\s*//;
+			$_ = "$continuation $_";
+			$continuation = 0;
+			$lineno = $file_lineno - 1;
+		} else {
+			$lineno = $file_lineno;
+		}
+
+		if(s/\s*\\$//) {
+			$continuation = $_;
+			next;
+		}
+
+		if(/^\s*$/) {
+			log_error("$file:$lineno: blank line (get rid of it)");
+			next;
+		}
+
+		unless(/=/) {
+			log_error("$file:$lineno: malformed line (no = sign, missing \\ on prev line?)");
+			next;
+		}
+
+		if(s/^\s+//) {
+			log_error("$file:$lineno: leading whitespace before key");
+		}
+
+		if(s/\s+$//) {
+			log_error("$file:$lineno: trailing whitespace at EOL");
+		}
+
+		if(my ($k, $s1, $s2, $q1, $val, $q2) = /^(\w+)(\s*)=(\s*)("?)(.*?)("?)$/) {
+			if(!grep { $k eq $_ } @expected) {
+				log_error("$file:$lineno: invalid key '$k'");
+			} else {
+				if($k ne $expected[$next_exp]) {
+					log_warning("$file:$lineno: out of order, expected $expected[$next_exp], got $k");
+				}
+				$next_exp++;
+			}
+
+			if(not $q1) {
+				log_error("$file:$lineno: missing opening double-quote");
+			}
+
+			if(not $q2) {
+				log_error("$file:$lineno: missing closing double-quote");
+			}
+
+			if(length($s1) || length($s2)) {
+				log_error("$file:$lineno: no spaces allowed before/after = sign");
+			}
+
+			my $oldval = $val;
+			if($val =~ s/^\s+//) {
+				log_error("$file:$lineno: leading space in value: \"$oldval\"");
+			}
+
+			if($val =~ s/\s+$//) {
+				log_error("$file:$lineno: trailing space in value: \"$oldval\"");
+			}
+
+			$info{$k} = $val;
+		} else {
+			log_error("$file:$lineno: malformed line");
+		}
+	}
+
+	# parsing done, now for semantic checks
+
+	my @missing;
+	for(@expected) {
+		if(not exists($info{$_})) {
+			push @missing, $_;
+		}
+	}
+
+	log_error("$file: missing required key(s): " . (join ", ", @missing)) if @missing;
+
+	# init this to avoid checking undef values below
+	$info{$_} ||= "" for @expected;
+
+	if($info{PRGNAM} && ($info{PRGNAM} ne $buildname)) {
+		log_error("$file: PRGNAM is '$info{PRGNAM}', should be '$buildname'");
+	}
+
+	if($info{VERSION} =~ /-/) {
+		log_error("$file: VERSION may not contain - (dash) characters");
+	}
+
+	if(!check_url($info{HOMEPAGE})) {
+		log_error("$file: HOMEPAGE=\"$info{HOMEPAGE}\" doesn't look like a valid URL (http, https, or ftp)");
+	}
+
+	# use a HEAD request for homepage, even if downloading other files
+	if($url_head || $url_download) {
+		curl_head_request($file, $info{HOMEPAGE}) || do {
+			log_warning("$file: HOMEPAGE URL broken?");
+		};
+	}
+
+	if($info{MD5SUM} =~ /^\s*$/) {
+		log_error("$file: MD5SUM is missing or blank") unless $info{DOWNLOAD} eq 'UNSUPPORTED';
+	} else {
+		check_dl_and_md5($file, "");
+	}
+
+	my $dl64 = $info{DOWNLOAD_x86_64};
+	if($dl64 =~ /^(?:|UNSUPPORTED|UNTESTED)$/) {
+		if($info{MD5SUM_x86_64} ne "") {
+			log_error("$file: MD5SUM_x86_64 must be blank if DOWNLOAD_x86_64 is not set");
+		}
+	} elsif($info{MD5SUM_x86_64} eq "") {
+		log_error("$file: MD5SUM_x86_64 may not be blank if DOWNLOAD_x86_64 is set");
+	} else {
+		check_dl_and_md5($file, "_x86_64");
+	}
+}
+
+sub check_dl_and_md5 {
+	my($file, $suffix) = @_;
+	my $md5key = "MD5SUM" . $suffix;
+	my $dlkey = "DOWNLOAD" . $suffix;
+
+	my @dlurls = split /\s+/, $info{$dlkey};
+	my @md5s = split /\s+/, $info{$md5key};
+
+	if(@md5s != @dlurls) {
+		log_error("$file: we have " . @dlurls . " $dlkey URLs but " . @md5s . " $md5key" . " values");
+	}
+
+	for my $u (@dlurls) {
+		if(!check_url($u)) {
+			log_error("$file: $dlkey URL '$u' doesn't look like a valid URL (http, https, or ftp)");
+			next;
+		}
+
+		#check_github_url($file, $u);
+
+		if($url_head) {
+			curl_head_request($file, $u) || do {
+				warn '$u is '. $u;
+				log_warning("$file: $dlkey URL '$u' broken?");
+			};
+		} elsif($url_download) {
+			warn "$SELF: -d option not yet implemented\n";
+		}
+	}
+
+	for(@md5s) {
+		unless(/^[0-9a-f]{32}$/) {
+			log_error("$file: $md5key '$_' is invalid (must be 32 hex digits)");
+		}
+	}
+
+	# TODO: maybe actually download and check md5sums.
+}
+
+sub check_url {
+	# url is bad if:
+	return 0 if $_[0] =~ /\s/;  #  ...it contains a space,
+	return 0 if $_[0] !~ /\./;  #  ...it has no dots, or
+	return 0 if $_[0] !~ /\//;  #  ...it has no slashes, or
+	return ($_[0] =~ /^(?:ftp|https?):\/\//); # ...it doesn't have a known protocol,
+	# ...which doesn't necessarily mean it's a good URL either.
+}
+
+sub curl_head_request {
+	#return !system("curl --head --location --silent --fail $_[0] >/dev/null");
+	#warn $_[1];
+	my $file = $_[0];
+	my $client_filename = $_[1];
+  	$client_filename =~ s,.*/,,;
+	my $curlcmd = "curl -m20 --head --location --silent --fail $_[1]";
+	open my $pipe, "$curlcmd|";
+	#warn "$curlcmd";
+	while(<$pipe>) {
+		chomp;
+		s/\r//;
+		if(/^content-disposition:\s+attachment;\s+filename=["']?(.*?)["']?$/i) {
+			#warn $1;
+			if(defined($client_filename) && ($client_filename ne $1)) {
+				log_warning("$file: download filename varies based on content disposition: '$1' vs. '$client_filename'");
+			}
+		}
+	}
+	return close($pipe);
+}
+
+# WIP, maybe no longer needed
+## sub check_github_url {
+## 	my $file = shift;
+## 	my $url = shift;
+## 	return unless $url =~ m{(https?:)//github\.com};
+## 
+## 	if($1 eq "http:") {
+## 		log_warning("$file: github URL $url should be https");
+## 	}
+## 
+## 	(my $expect_filename = $url) =~ s,.*/,,;
+## 	my(undef, undef, undef, $user, $prog, $archive, $ver, $filename) = split /\//, $url;
+## 	warn "user $user, prog $prog, archive $archive, ver $ver, filename $filename, expect_filename $expect_filename\n";
+## 
+## 	# assume these are correct, for now
+## 	return if $user eq 'downloads';
+## 	return if $archive eq 'releases';
+## 
+## 	# TODO: work out what to do about /raw/
+## 	return if $archive eq 'raw';
+## 
+## 	if($archive ne 'archive') {
+## 		log_warning("$file: unknown github URL type: $url");
+## 		return;
+## 	}
+## 
+## 	# OK, good URLs look like this:
+## 	# https://github.com/jeetsukumaran/DendroPy/archive/v4.4.0/DendroPy-4.4.0.tar.gz
+## 	# ...and bad ones look like this:
+## 	# https://github.com/haiwen/seafile-client/archive/v4.4.2.tar.gz
+## 	# Corrected version of the bad one would be:
+## 	# https://github.com/haiwen/seafile-client/archive/v4.4.2/seafile-client-4.4.2.tar.gz
+## 	# Notice the "v" isn't part of the version number. It's not always there,
+## 	# and sometimes it's a different letter (r, or g, or capital V, etc).
+## }
+
+# NOT going to police the script too much. Would end up rewriting most of
+# the shell, in perl. Plus, it'd become a straitjacket. Here's what I'll
+# implement:
+# - #!/bin/bash on line 1
+# - PRGNAM must match $buildname
+# - VERSION must match the .info VERSION
+# - BUILD line must be present
+# - TAG line must be present
+# - If VERSION, BUILD, TAG don't respect the env, it's a warning
+# - Check for strings like slack-desc, $PKG/install, makepkg, stuff
+#   that's standard for SBo. Don't be too specific here.
+# - If there's a doinst.sh, it must mentioned in the script. If not,
+#   it better not be mentioned.
+# - Check for leftover boilerplate
+# - cp -a <documentation> is an error
+
+sub check_script {
+	my $file = $buildname . ".SlackBuild";
+	my $wantmode = $in_git_repo ? 0644 : 0755;
+
+	my @lines = check_and_read($file, $wantmode);
+	return unless scalar @lines;
+
+	if($lines[0] !~ /^#!/) {
+		log_error("$file:1: missing or invalid shebang line (should be '#!/bin/bash')");
+	} elsif($lines[0] !~ m,#!/bin/bash(?: (?:-e|-eu|-ue|-e -u|-u -e))?$,) {
+		log_warning("$file:1: shebang line should be #!/bin/bash (possibly with -e/-u arg(s)), not '$lines[0]'");
+	}
+
+	my $lineno = 0;
+	my ($prgnam, $version, $build, $tag, $need_doinst, $slackdesc, $makepkg, $install);
+	my ($cdpkg, $codestart, $lint_enabled);
+	$lint_enabled = 1;
+
+	for(@lines) {
+		$lineno++;
+
+		if(/^\s*[^#]/ && !defined($codestart)) {
+			$codestart = $lineno;
+		}
+
+		if(/^###sbolint\s*(\S+)/) {
+			my $arg = $1;
+			if(lc($arg) eq "on") {
+				$lint_enabled = 1;
+			} elsif(lc($arg) eq "off") {
+				$lint_enabled = 0;
+			} else {
+				log_warning("$file:$lineno: unknown ###sbolint argument '$arg' (should be 'on' or 'off')");
+			}
+		}
+
+		next unless $lint_enabled;
+
+		# TODO: cp without -a (or -p, or a couple other flags) is OK.
+##		if(/^[^#]*cp\s+(?:-\w+\s+)*[\"\$\{]*CWD/) {
+##			log_error("$file:$lineno: copying files from CWD with cp (use cat instead)");
+##		}
+
+		if(/^PRGNAM=(\S+)/) {
+			if($prgnam) {
+				log_error("$file:$lineno: PRGNAM redefined");
+			}
+			$prgnam = dequote($1);
+			if($prgnam ne $buildname) {
+				log_error("$file:$lineno: PRGNAM doesn't match dir name ($prgnam != $buildname)");
+			}
+		} elsif(/^VERSION=(\S+)/ && ($lineno <= $codestart + 10)) {
+			$version = dequote($1);
+			if(not ($version =~ s/\$\{VERSION:-([^}]+)\}/$1/)) {
+				log_warning("$file:$lineno: VERSION ignores environment, try VERSION=\${VERSION:-$version}");
+			}
+			$version = dequote($1);
+			if($version ne $info{VERSION}) {
+				log_error("$file:$lineno: VERSION ($version) doesn't match VERSION in the .info file ($info{VERSION})");
+			}
+		} elsif(/^BUILD=(\S+)/) {
+			$build = dequote($1);
+			if(not ($build =~ /\d/)) {
+				log_error("$file:$lineno: BUILD is non-numeric");
+			} elsif(not ($build =~ /\$\{BUILD:-\d+}/)) {
+				log_warning("$file:$lineno: BUILD ignores environment (try BUILD=\${BUILD:-$build}");
+			}
+		} elsif(/^TAG=(\S+)/) {
+			$tag = dequote($1);
+			if($tag !~ /\$\{TAG:-(?:_SBo|("|')_SBo(\1))\}/) {
+				log_error("$file:$lineno: TAG=\${TAG:-_SBo} is required");
+			}
+		} elsif(/^[^#]*[^>]>[^>]*doinst\.sh/) {
+			# 20220205 bkw: some scripts don't have a doinst.sh in the
+			# script dir, but they create one with >> (the jack rt audio stuff
+			# does this).
+			$need_doinst = $lineno;
+		} elsif(/^[^#]*slack-desc/) {
+			$slackdesc = $lineno;
+			$install = $lineno if m,install/,; # assume OK
+		} elsif(/^[^#]*?cd\s+[{\$"]*PKG[}"]*/) {
+			$cdpkg = $lineno;
+		} elsif(/^[^#]*?["{\$]+PKG[}"]*\/install/) {
+			$install = $lineno;
+		} elsif($cdpkg && /^[^#]*mkdir[^#]*install/) {
+			$install = $lineno;
+		} elsif(/^[^#]*makepkg/) {
+			if($makepkg) {
+				log_error("$file:$lineno: makepkg called twice (here and line $makepkg");
+			}
+			$makepkg = $lineno;
+		}
+
+		if(/^[^#]*<documentation>/) {
+			log_error("$file:$lineno: copy actual documentation, not <documentation>");
+		}
+
+		my $line = $_;
+		if(grep { $line =~ /$_/ } @boilerplate) {
+			log_error("$file:$lineno: template comment should be removed");
+		}
+
+		# special case here: don't complain about this comment if it's a perl-* build
+		if($file !~ /^perl-/) {
+			if($line =~ /#\s*Remove perllocal.pod and other special files/) {
+				log_error("$file:$lineno: template comment should be removed");
+			}
+		}
+
+	}
+
+	if(not defined($prgnam)) {
+		log_error("$file: no PRGNAM= line");
+	}
+
+	if(not defined($version)) {
+		log_error("$file: no VERSION= line");
+	}
+
+	if(not defined($build)) {
+		log_error("$file: no BUILD= line");
+	}
+
+	if(not defined($tag)) {
+		log_error("$file: no TAG= line");
+	}
+
+	if(not defined($slackdesc)) {
+		log_error("$file: doesn't seem to install slack-desc in \$PKG/install");
+	}
+
+	if(not defined($makepkg)) {
+		log_error("$file: no makepkg command found");
+	}
+
+	if(not defined($install)) {
+		log_error("$file: nothing gets installed in \$PKG/install");
+	}
+
+	my $have_doinst = (-f "doinst.sh");
+	if($have_doinst) {
+		check_and_read("doinst.sh", 0644);
+	}
+	if($need_doinst && !$have_doinst) {
+		log_error("$file:$need_doinst: script installs doinst.sh, but it doesn't exist");
+	} elsif($have_doinst && !$need_doinst) {
+		log_error("$file: doinst.sh exists, but the script doesn't install it");
+	}
+}
+
+# stuff like editor backups and dangling symlinks.
+# maybe *any* symlinks?
+# ELF objects are bad, too.
+# Big-ass files...
+# directories are OK, but hidden dirs are not.
+sub check_junkfiles {
+	my @sources = split(/\s+/, $info{DOWNLOAD} . " " . $info{DOWNLOAD_x86_64});
+	s,.*/,, for @sources;
+	@sources = grep { $_ !~ /^(?:\s*|UNTESTED|UNSUPPORTED)$/ } @sources;
+	if(!grep { $_ =~ /^v$info{VERSION}\./ } @sources) {
+		push @sources, "v$info{VERSION}.$_" for qw /zip tar.gz tar.bz2 tar.xz/;
+	}
+
+	open my $fh, "-|", "find . ! -type d -print0 | xargs -0 file --mime-type";
+	FILE: while(<$fh>) {
+		chomp;
+		my ($file, $type) = split /: */, $_, 2;
+		$file =~ s,\./,,;
+
+		# skip the files caught by other checks
+		next if $file eq "$buildname.SlackBuild";
+		next if $file eq "$buildname.info";
+		next if $file eq "README";
+		next if $file eq "slack-desc";
+		next if $file =~ /(?:diff|patch)$/;
+
+		check_mode($file, 0644);
+
+		if(grep { $_ eq $file } @sources) {
+			log_error("source archive found: $file");
+			next FILE;
+		}
+
+		for($file) {
+			(/\.swp\w*$/ || /#/ || /~/ ) && do {
+				log_error("editor backup found: $file");
+				next FILE;
+			};
+			/^\./ && do {
+				log_error("hidden file found: $file");
+				next FILE;
+			};
+			/\.(?:orig|bak|old)[^.]*$/ && do {
+				log_warning("$file looks like sort some of backup file");
+				next FILE;
+			};
+			/^(?:build.log|strace.out)/ && do {
+				log_warning("$file is a build log");
+				next FILE;
+			};
+			/\.desktop$/ && do {
+				system("desktop-file-validate $file");
+				if($? != 0) {
+					log_warning("$file fails desktop-file-validate");
+					next FILE;
+				}
+			}
+		}
+
+		for($type) {
+			($_ eq "inode/x-empty") && do {
+				log_error("$file is empty (0 bytes long)");
+				next FILE;
+			};
+			($_ =~ /^inode/) && do {
+				log_error("$file is $type, not a regular file or directory");
+				next FILE;
+			};
+			($_ =~ m,application/x-(?:executable|dosexec|object|coredump),) && do {
+				log_error("$file is object code ($type)");
+				next FILE;
+			};
+		}
+
+		my $size = -s $file;
+		if($size > 1024 * 100) {
+			log_warning("$file is large ($size bytes), may be rejected by submission form");
+		}
+	}
+	close $fh;
+
+	open $fh, "-|", "find . -type d -mindepth 1";
+	while(<$fh>) {
+		chomp;
+		s,\./,,;
+
+		if(/^\./) {
+			log_error("found hidden directory: $_");
+			next;
+		}
+
+		if(glob("$_/*.o")) {
+			log_error("$_ contains compiled object files (leftover source tree?)");
+			next;
+		}
+
+		for my $badfile (qw/Makefile configure CmakeLists.txt makefile.pl SConstruct/) {
+			if(-f "$_/$badfile") {
+				log_error("$_ looks like extracted source tree (contains $badfile)");
+			}
+		}
+	}
+	close $fh;
+
+#	# this won't always catch everything (e.g. PRGNAM=foo VERSION=1, but the
+#	# extracted dir is foo1 or foo_1 or foo-source-1).
+#	if(-d "$buildname-$version") {
+#		log_warning("$buildname-$version/ looks like extracted source dir");
+#	}
+}
+
+# if anything *.diff or *.patch contains \r, warn the
+# user about git stripping the \r's (better gzip it).
+sub check_patches {
+	for(<*.diff>,<*.patch>) {
+		check_and_read($_, 0644);
+	}
+}
+
+# checking an image is a bit of a PITA. "file" can tell us if it's
+# not an image, or has the wrong extension.
+# ImageMagick's "identify" command won't detect truncated images.
+# "convert" will, but it always returns 0/success, so we have to
+# parse its output.
+sub im_check_img {
+	our %ext2mime;
+	my $mime;
+	my $ok = 1;
+
+	%ext2mime = (
+			png => 'image/png',
+			jpg => 'image/jpeg',
+			xpm => 'image/x-xpm',
+			gif => 'image/gif',
+	) unless %ext2mime;
+
+	my $img = shift;
+	my $ext = $img;
+	$ext =~ s,.*\.,,;
+	$ext = lc $ext;
+
+	chomp($mime = `file -L --brief --mime "$img"`);
+	if($mime !~ /$ext2mime{$ext}/) {
+		log_error("$img has wrong extension $ext (MIME type is $mime)");
+		return;
+	}
+
+	open my $im, "convert \"$img\" png:/dev/null 2>&1 |";
+	while(<$im>) {
+		$ok = 0 if /premature|corrupt/i;
+	}
+	close $im;
+
+	log_error("$img appears to be corrupt") unless $ok;
+}
+
+sub check_images {
+	my $images = `find . \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.xpm' -o -iname '*.gif' \\) -print0`;
+	for(split /\x00/, $images) {
+		check_mode($_, 0644);
+		im_check_img($_);
+	}
+}

@@ -77,3 +77,27 @@ pipelineJob("slackbuilds.org-15.0-shellcheck") {
         disableConcurrentBuilds()
     }
 }
+
+pipelineJob("slackbuilds.org-15.0-sbolint") {
+    definition {
+        cpsScm {
+            lightweight(true)
+
+            scm {
+                github('aclemons/slackbuilds-ci', 'master')
+            }
+
+            scriptPath('Jenkinsfile.sbolint')
+        }
+    }
+
+    description('Run sbolint on all scripts from slackbuilds.org for 15.0.')
+
+    environmentVariables {
+        env('BRANCH', '15.0')
+    }
+
+    properties {
+        disableConcurrentBuilds()
+    }
+}

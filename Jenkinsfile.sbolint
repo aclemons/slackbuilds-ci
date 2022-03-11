@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-// Copyright 2019-2022 Andrew Clemons, Wellington New Zealand
+// Copyright 2019-2021 Andrew Clemons, Wellington New Zealand
 // All rights reserved.
 //
 // Redistribution and use of this script, with or without modification, is
@@ -56,9 +56,15 @@ node('master') {
         checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: gitRepo]]]
 
         dir('slackbuilds') {
-            sh(returnStatus: true, script: libraryResource('shellcheck_all_slackbuilds.sh'))
+            writeFile(file: 'sbolint', text: libraryResource('sbolint'))
 
-            recordIssues blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'shellcheck', name: 'ShellCheck', pattern: 'log/**/*.xml')]
+            try {
+                sh(returnStatus: true, script: libraryResource('sbolint_all_slackbuilds.sh'))
+            } finally {
+                sh('rm sbolint')
+                recordIssues blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'sbolint', name: 'sbolint', pattern: 'log/**/*.xml')]
+                archiveArtifacts artifacts: 'log/**/*'
+            }
         }
     }
 }
