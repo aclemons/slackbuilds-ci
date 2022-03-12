@@ -11,7 +11,6 @@ find log -empty -type f -delete
 find log -empty -type d -delete
 
 # clear some things for now
-find log -type f | parallel -q sed -i '/README has lines/d'
 find log -type f | parallel -q sed -i '/template comment should be removed/d'
 find log -type f | parallel -q sed -i '/doinst.sh exists, but the script doesn/d'
 find log -type f | parallel -q sed -i '/script installs doinst.sh, but it does/d'
