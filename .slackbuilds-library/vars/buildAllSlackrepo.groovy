@@ -28,7 +28,7 @@ def call() {
     def projects = null
     if ("true".equals(env.ENABLE_PACKAGE_LISTING)) {
         // experimental project listing - currently very slow since we have to stop and start a container for each package to build
-        docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --privileged -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo}") {
+        docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --cap-add SYS_ADMIN -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo}") {
             ansiColor('xterm') {
                 withEnv(["PACKAGE=${packageName}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}", "SETARCH=${setArch}"]) {
                     sh(returnStatus: true, script: libraryResource('build_package_list_with_slackrepo.sh'))
@@ -53,7 +53,7 @@ def call() {
         projects.each {
             echo "Building ${it}"
 
-            docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --privileged -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo} -v ${env.SLACKREPO_SOURCES}:/var/lib/slackrepo/${optRepo}/source") {
+            docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --cap-add SYS_ADMIN -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo} -v ${env.SLACKREPO_SOURCES}:/var/lib/slackrepo/${optRepo}/source") {
                 if ("true".equals(env.SEED_UID_GID)) {
                     createAllUsersAndGroups()
                 }
