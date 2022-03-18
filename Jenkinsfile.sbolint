@@ -62,7 +62,7 @@ node('master') {
                 sh(returnStatus: true, script: libraryResource('sbolint_all_slackbuilds.sh'))
             } finally {
                 sh('rm sbolint')
-                recordIssues blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'sbolint', name: 'sbolint', pattern: 'log/**/*.xml')]
+                recordIssues scm: 'slackbuilds.org', blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'sbolint', name: 'sbolint', pattern: 'log/**/*.xml')]
                 archiveArtifacts artifacts: 'log/**/*'
             }
         }
