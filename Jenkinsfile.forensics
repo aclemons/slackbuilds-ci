@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-// Copyright 2019-2021 Andrew Clemons, Wellington New Zealand
+// Copyright 2019-2022 Andrew Clemons, Wellington New Zealand
 // All rights reserved.
 //
 // Redistribution and use of this script, with or without modification, is
@@ -24,7 +24,7 @@ def libraryPath = '.slackbuilds-library'
 
 node('master') {
     echo "Loading local shared library"
-    checkout scm
+    checkout poll: false, changelog: false, scm: scm
 
     // create new git repo inside jenkins subdirectory
     sh(
