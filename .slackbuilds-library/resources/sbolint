@@ -2,6 +2,8 @@
 
 # ChangeLog:
 
+# 0.4 20220314 bkw: add -a option to check all builds in the git repo.
+
 # 0.3 20200420 bkw:
 # - Check github URLs for validity.
 
@@ -22,10 +24,7 @@
 
 # 0.1 20141114 bkw, Initial release.
 
-$VERSION="0.3";
-
-# generate man page with:
-# pod2man --stderr -r0.2 -s1 -c"SBo Maintainer Tools" sbolint > sbolint.1
+$VERSION="0.4";
 
 # This script is meant to be fairly self-contained, prefer not to
 # require a huge pile of perl module dependencies. In some cases this
@@ -54,7 +53,7 @@ sbolint - check SlackBuild directories or tarballs for common errors.
 
 =head1 SYNOPSIS
 
-B<sbolint> [-q] [-u] [-n] [build [build ...]]
+B<sbolint> [-g] [-q] [-u] [-n] [build [build ...]]
 
 =head1 DESCRIPTION
 
@@ -83,6 +82,11 @@ pprkut's B<lintpkg>.
 =head1 OPTIONS
 
 =over 4
+
+=item B<-a>
+
+Check all builds in the git repository. This must be run from within a
+git tree (e.g. one made with "git clone").
 
 =item B<-q>
 
@@ -152,8 +156,8 @@ and be a I<#!/bin/bash> script.
 
 =item -
 
-The script must contain the standard variable assignements for PRGNAM,
-VERSION, BUILD, and TAG.
+The script must contain the standard variable assignments for PRGNAM,
+VERSION, BUILD, and TAG. BUILD must be numeric.
 
 =item -
 
@@ -170,11 +174,11 @@ TAG=${TAG:-_SBo} must occur in the script.
 
 =item -
 
-The I<VERSION> and I<BUILD> variables must respect the environment.
+The I<VERSION>, I<BUILD>, and I<TAG> variables must respect the environment.
 
 =item -
 
-The script must install the slack-desc in $PKG/install.
+The script must install the slack-desc in I<$PKG/install>.
 
 =item -
 
@@ -187,15 +191,17 @@ or I<"Automatically determine the architecture we're building on">.
 
 =item -
 
-Script must contain a B<makepkg> command.
+Script must contain exactly one B<makepkg> command.
 
 =item -
 
-README must exist and have mode 0644.
+README must exist, have mode 0644, its character encoding must be
+either ASCII or UTF-8 without BOM, and it may not contain tab characters.
 
 =item -
 
-slack-desc must exist and have mode 0644.
+slack-desc must exist, have mode 0644, its character encoding must be ASCII,
+and it may not contain tab characters.
 
 =item -
 
@@ -262,7 +268,7 @@ Probably quite a few. Watch this space for details.
 
 =head1 AUTHOR
 
-B. Watson (yalhcru at gmail dot com, or Urchlay on Freenode IRC)
+B. Watson (yalhcru at gmail dot com, or Urchlay on Libera IRC)
 
 =head1 SEE ALSO
 
@@ -313,12 +319,16 @@ our %info = (); # has to be global, check_info sets it, check_script needs it
 
 while(@ARGV && ($ARGV[0] =~ /^-/)) {
 	my $opt = shift;
+	$opt =~ /^-a/ && do { $recursive_git = 1; next; };
 	$opt =~ /^-u/ && do { $url_head = 1; next; };
 	$opt =~ /^-d/ && do { $url_download = 1; next; };
 	$opt =~ /^--?q(uiet)?/ && do { $quiet = 1; next; };
 	$opt =~ /^-$/ && do { $stdin = 1; next; };
 	$opt =~ /^--?h(elp)?/ && do { usage(); exit 0; };
 	$opt =~ /^-n$/ && do { $nowarn = 1; next; };
+	$opt =~ /^-r$/ && do { $suppress_readme_len = 1; next; };
+	$opt =~ /^--doc$/ && do { exec("perldoc $0"); };
+	$opt =~ /^--man$/ && do { exec("pod2man --stderr -s1 -cSBoStuff -r$VERSION $0"); };
 	die_usage("Unrecognized option '$opt'");
 }
 
@@ -337,6 +347,28 @@ if($stdin) {
 	chomp for @ARGV;
 }
 
+if($recursive_git) {
+	@ARGV=();
+	my $pwd;
+
+	# find root of the SBo git repo, if we're somewhere inside it.
+	while(! -d ".git" && ! -d "system") {
+		chdir("..");
+		chomp($pwd = `pwd`);
+		die "$SELF: -a option only works if you run $SELF from a git worktree\n" if $pwd eq "/";
+	}
+
+	chomp($pwd = `pwd`);
+
+	for(`git ls-files '*/*/*.SlackBuild' | cut -d/ -f1,2`) {
+		chomp;
+		push @ARGV, $_;
+	}
+
+	warn "$SELF: linting " . scalar(@ARGV) . " builds from git repo at $pwd\n" unless $quiet;
+	$quiet = 1;
+}
+
 push @ARGV, "." unless @ARGV;
 
 # are we in a git repo? build scripts are mode 0644 there, plus
@@ -350,17 +382,17 @@ for(@ARGV) {
 
 	if(!$quiet) {
 		if($errcount == 0 and $warncount == 0) {
-			print "$buildname checks out OK\n";
+			print "$SELF: $buildname checks out OK\n";
 		} else {
-			print "$buildname: errors $errcount, warnings $warncount\n";
+			print "$SELF: $buildname: errors $errcount, warnings $warncount\n";
 		}
 	}
 }
 
 # print total errs/warns only if >1 build checked
 if(!$quiet && @ARGV > 1) {
-	print "Total errors: $g_errcount\n";
-	print "Total warnings: $g_warncount\n" unless $nowarn;
+	print "$SELF: Total errors: $g_errcount\n";
+	print "$SELF: Total warnings: $g_warncount\n" unless $nowarn;
 }
 
 exit ($g_errcount > 0 || (!$nowarn && $g_warncount > 0));
@@ -400,7 +432,8 @@ sub usage {
 
 $SELF - check SlackBuilds.org scripts for common problems.
 
-Usage: $SELF [-q] [-u] [-n] <build <build ...>>
+Usage: $SELF [-q] [-u] [-n] [-r] <build <build ...>>
+Usage: $SELF --help | --man
 
 builds may be directories or tarballs. If no build arguments given,
 . (current directory) is assumed. Use - to read a list of tarballs/dirs
@@ -408,14 +441,17 @@ from stdin.
 
 Options:
 
+-a  Lint all builds in the git repo.
 -q  Quiet: only emit errors/warnings, no 'checks out OK' or totals.
 -u  URL Check: use HTTP HEAD request to verify download/homepage URLs exist.
 -n  Suppress warnings, log only errors.
+-r  Suppress warning about README lines being too long.
+--doc   See the full documentation, in your pager.
+--man   Convert the full documentation to a man page, on stdout.
 
-See the man page for more details. If you don't have the man page, you
-can generate it with:
+Do not bundle options (say "-q -r", not "-qr").
 
-pod2man --stderr -s1 -cSBoStuff -r$VERSION /path/to/sbolint > sbolint.1
+See the full documentation for more details.
 EOF
 # not yet:
 #-d  URL Download: as -u, plus download & check md5sums of download URLs.
@@ -638,14 +674,51 @@ sub check_and_read {
 	return @lines;
 }
 
-# 20220205 bkw: don't complain about long lines if they're URLs,
-# not much we can do about them.
-sub check_readme {
-	my @lines = check_and_read("README", 0644);
-	if(grep { !/^\s*(ftp|https?):\/\// && length > 72 } @lines) {
-		log_warning("README has lines >72 characters");
+# 20220315 bkw: warn if a file isn't ASCII or UTF-8 without BOM.
+# Used for README and slack-desc...
+sub check_encoding {
+	my $file = shift;
+	my $ascii_only = shift;
+	my $ftype;
+
+	# 20220314 bkw: the -e options make file faster and turn off checks
+	# we don't need, ones that sometimes cause false detection too.
+	chomp($ftype = `file -b -e cdf -e compress -e csv -e elf -e json -e soft -e tar $file`);
+
+	if($ascii_only && ($ftype !~ /ASCII text/)) {
+		log_warning("$file must be ASCII text, not $ftype");
 	}
-	# TODO: check encoding (must be ASCII or UTF-8)
+
+	if($ftype =~ /ASCII text/ || $ftype =~ /UTF-8/) {
+		# encoding is OK, but:
+		if($ftype =~ /BOM/) {
+			log_warning("$file has BOM, remove with:  LANG=C sed -i '1s/^\\xEF\\xBB\\xBF//' $file");
+		}
+	} elsif($ftype =~ /ISO-8859/) {
+		log_warning("$file has ISO-8859 encoding, fix with:  mv $file $file.old; iconv -f iso-8859-1 -t utf-8 $file.old > $file; rm $file.old");
+	} else {
+		log_warning("$file isn't ASCII or UTF-8, file(1) says it's '$ftype'");
+	}
+}
+
+sub check_readme {
+	my $maxlen = $ENV{'SBOLINT_README_MAX'} || 72;
+	my @lines = check_and_read("README", 0644);
+	return unless @lines;
+
+	check_encoding("README", 0);
+
+	if(grep { /\t/ } @lines) {
+		log_warning("README has tabs, these should be replaced with spaces");
+	}
+
+	return if $suppress_readme_len;
+
+	# 20220205 bkw: don't complain about long lines if they're URLs,
+	# not much we can do about them.
+	if(grep { !/^\s*(ftp|https?):\/\// && length > $maxlen } @lines) {
+		log_warning("README has lines >$maxlen characters");
+	}
 }
 
 # the slack-desc checking code offends me (the author), on the one hand it's
@@ -654,6 +727,12 @@ sub check_readme {
 sub check_slackdesc {
 	my @lines = check_and_read("slack-desc", 0644);
 	return unless scalar @lines;
+
+	check_encoding("slack-desc", 1);
+
+	if(grep { /\t/ } @lines) {
+		log_warning("slack-desc has tabs, these should be replaced with spaces");
+	}
 
 	my $lineno = 1;
 
@@ -1021,7 +1100,7 @@ sub check_script {
 
 	my $lineno = 0;
 	my ($prgnam, $version, $build, $tag, $need_doinst, $slackdesc, $makepkg, $install);
-	my ($cdpkg, $codestart, $lint_enabled);
+	my ($cdpkg, $codestart, $lint_enabled, $print_pkg_name);
 	$lint_enabled = 1;
 
 	for(@lines) {
@@ -1078,7 +1157,7 @@ sub check_script {
 			if($tag !~ /\$\{TAG:-(?:_SBo|("|')_SBo(\1))\}/) {
 				log_error("$file:$lineno: TAG=\${TAG:-_SBo} is required");
 			}
-		} elsif(/^[^#]*[^>]>[^>]*doinst\.sh/) {
+		} elsif(/^[^#]*\$\{?CWD\}?\/doinst\.sh/) {
 			# 20220205 bkw: some scripts don't have a doinst.sh in the
 			# script dir, but they create one with >> (the jack rt audio stuff
 			# does this).
@@ -1105,16 +1184,20 @@ sub check_script {
 
 		my $line = $_;
 		if(grep { $line =~ /$_/ } @boilerplate) {
-			log_error("$file:$lineno: template comment should be removed");
+			log_warning("$file:$lineno: template comment should be removed");
 		}
 
 		# special case here: don't complain about this comment if it's a perl-* build
 		if($file !~ /^perl-/) {
 			if($line =~ /#\s*Remove perllocal.pod and other special files/) {
-				log_error("$file:$lineno: template comment should be removed");
+				log_warning("$file:$lineno: template comment should be removed");
 			}
 		}
 
+		# 20220312 bkw: 15.0 template
+		if(/^[^#]*\$.*PRINT_PACKAGE_NAME/) {
+			$print_pkg_name = 1;
+		}
 	}
 
 	if(not defined($prgnam)) {
@@ -1139,6 +1222,10 @@ sub check_script {
 
 	if(not defined($makepkg)) {
 		log_error("$file: no makepkg command found");
+	}
+
+	if(not defined($print_pkg_name)) {
+		log_error("$file: missing PRINT_PACKAGE_NAME stanza (Slackware >= 15.0)");
 	}
 
 	if(not defined($install)) {
