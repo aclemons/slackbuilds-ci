@@ -32,6 +32,10 @@ CWD="$(pwd)"
     unlink slackbuilds
   fi
 
+  if [ -e slackbuilds ] ; then
+    rm -rf slackbuilds
+  fi
+
   ln -sf "$CWD" slackbuilds
 )
 
