@@ -15,6 +15,11 @@ find log -type f | xargs sed -i '/fuse-overlayfs: WARN: README has lines >72 cha
 find log -empty -type f -delete
 find log -empty -type d -delete
 
+mkdir -p log
+
+printf "<?xml version='1.0'?>\n" > checkstyle.xml
+printf '<checkstyle>\n' >> checkstyle.xml
+
 find log -type f | while read -r file ; do
   dir="$(printf '%s\n' "$file" | sed 's/log\///')"
   dir="$(dirname "$dir")"
@@ -30,7 +35,7 @@ find log -type f | while read -r file ; do
       warning_col="0"
     fi
 
-    printf "<file name='%s/%s'>\n" "$dir" "$warning_file" >> "$file".xml
+    printf "<file name='%s/%s'>\n" "$dir" "$warning_file" >> checkstyle.xml
 
     line="$(printf '%s\n' "$line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')"
 
@@ -41,11 +46,16 @@ find log -type f | while read -r file ; do
 
     line="$(printf '%s\n' "$line" | cut -d' ' -f 4-)"
 
-    printf "  <error column='%s' severity='%s' message='%s'/>\n" "$warning_col" "$severity" "$line" >> "$file".xml
-    printf "</file>\n" >> "$file".xml
+    printf "  <error column='%s' severity='%s' message='%s'/>\n" "$warning_col" "$severity" "$line" >> checkstyle.xml
+    printf "</file>\n" >> checkstyle.xml
   done < "$file"
-
-  printf '</checkstyle>\n' >> "$file".xml
 
   rm "$file"
 done
+
+printf '</checkstyle>\n' >> checkstyle.xml
+
+rm -rf log
+
+mkdir log
+mv checkstyle.xml log
