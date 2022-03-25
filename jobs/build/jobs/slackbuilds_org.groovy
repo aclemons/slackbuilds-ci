@@ -48,6 +48,10 @@
             }
         }
 
+        logRotator {
+            numToKeep(5)
+        }
+
         properties {
             disableConcurrentBuilds()
         }
@@ -73,6 +77,10 @@ pipelineJob("slackbuilds.org-15.0-shellcheck") {
         env('BRANCH', '15.0')
     }
 
+    logRotator {
+        numToKeep(5)
+    }
+
     properties {
         disableConcurrentBuilds()
     }
@@ -95,6 +103,10 @@ pipelineJob("slackbuilds.org-15.0-sbolint") {
 
     environmentVariables {
         env('BRANCH', '15.0')
+    }
+
+    logRotator {
+        numToKeep(5)
     }
 
     properties {

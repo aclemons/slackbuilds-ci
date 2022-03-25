@@ -41,6 +41,10 @@
                 DOCKER_IMAGE: "aclemons/slackware:${release}-${arch}-base"
             )
 
+            logRotator {
+                numToKeep(5)
+            }
+
             properties {
                 disableConcurrentBuilds()
             }
@@ -67,6 +71,10 @@
                 LOCAL_MIRROR: "/var/lib/jenkins/caches/slackware/${name}-${release}"
             )
 
+            logRotator {
+                numToKeep(5)
+            }
+
             properties {
                 disableConcurrentBuilds()
             }
@@ -92,6 +100,10 @@
                 BASE_IMAGE: "aclemons/slackware:${release}-${arch}-full",
                 NO_CACHE: 'true'
             )
+
+            logRotator {
+                numToKeep(5)
+            }
 
             properties {
                 disableConcurrentBuilds()
