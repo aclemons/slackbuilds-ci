@@ -21,7 +21,11 @@
 //  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ['14.2', '15.0', 'current'].each { release ->
-    [x86_64: 'slackware64', x86: 'slackware', arm: 'slackwarearm'].each { arch, name ->
+    [x86_64: 'slackware64', x86: 'slackware', arm: 'slackwarearm', aarch64: 'slackwareaarch64'].each { arch, name ->
+        if (arch == 'aarch64' && release != 'current') {
+            return
+        }
+
         pipelineJob("docker-${name}-${release}-base") {
             definition {
                 cpsScm {
