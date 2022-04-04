@@ -38,7 +38,7 @@ def call() {
 
         projects = sh(returnStdout: true, script: "sort -r tmp/project_list").split()
     } else {
-        projects = packageName.split(" ")
+        projects = packageName?.split(" ")
     }
 
     // re-init log/tmp
@@ -47,30 +47,51 @@ def call() {
         sh '#!/bin/sh -e\necho "Created log directory: $(pwd)"'
     }
 
-    echo "Found ${projects.size()} projects to build"
+    echo "Found ${projects?.size()} projects to build"
 
     try {
-        projects.each {
-            echo "Building ${it}"
-
+        if (projects == null) {
             docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --cap-add SYS_ADMIN -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo}") {
                 if ("true".equals(env.SEED_UID_GID)) {
                     createAllUsersAndGroups()
                 }
 
                 ansiColor('xterm') {
-                    withEnv(["PROJECT=${it}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}", "SETARCH=${setArch}"]) {
+                    withEnv(["JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}", "SETARCH=${setArch}"]) {
                         sh(returnStatus: true, script: libraryResource('build_with_slackrepo.sh'))
 
                         writeFile(file: 'slackrepo_parse.rb', text: libraryResource('slackrepo_parse.rb'))
 
-                        sh "LANG=en_US.UTF-8 ruby slackrepo_parse.rb '$JOB_NAME' 'tmp/$PROJECT/checkstyle.xml' 'tmp/$PROJECT/junit.xml' 'tmp/$PROJECT/build'"
+                        sh "LANG=en_US.UTF-8 ruby slackrepo_parse.rb '$JOB_NAME' 'tmp/checkstyle.xml' 'tmp/junit.xml' 'tmp/build'"
                     }
                 }
 
             }
 
-            junit allowEmptyResults: true, testResults: "tmp/${it}/junit.xml"
+            junit allowEmptyResults: true, testResults: "tmp/junit.xml"
+        } else {
+            projects.each {
+                echo "Building ${it}"
+
+                docker.image(env.SLACKREPO_DOCKER_IMAGE).inside("-u 0 --cap-add SYS_ADMIN -v ${env.SLACKREPO_DIR}:/var/lib/slackrepo/${optRepo}") {
+                    if ("true".equals(env.SEED_UID_GID)) {
+                        createAllUsersAndGroups()
+                    }
+
+                    ansiColor('xterm') {
+                        withEnv(["PROJECT=${it}", "JENKINSUID=${userId}", "JENKINSGUID=${groupId}", "BUILD_ARCH=${buildArch}", "OPT_REPO=${optRepo}", "SETARCH=${setArch}"]) {
+                            sh(returnStatus: true, script: libraryResource('build_with_slackrepo.sh'))
+
+                            writeFile(file: 'slackrepo_parse.rb', text: libraryResource('slackrepo_parse.rb'))
+
+                            sh "LANG=en_US.UTF-8 ruby slackrepo_parse.rb '$JOB_NAME' 'tmp/$PROJECT/checkstyle.xml' 'tmp/$PROJECT/junit.xml' 'tmp/$PROJECT/build'"
+                        }
+                    }
+
+                }
+
+                junit allowEmptyResults: true, testResults: "tmp/${it}/junit.xml"
+            }
         }
     } finally {
         recordIssues blameDisabled: true, enabledForFailure: true, tools: [checkStyle(id: 'slackrepo', name: 'Slackrepo', pattern: 'tmp/**/checkstyle.xml')]
