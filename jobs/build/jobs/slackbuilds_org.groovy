@@ -41,7 +41,7 @@
             env('SLACKREPO_DOCKER_IMAGE', "aclemons/slackrepo:15.0-${arch}")
             env('OPT_REPO', 'SBo')
             env('PACKAGE_NAME', 'academic accessibility audio business desktop development games gis graphics ham haskell libraries misc multimedia network office perl python ruby system')
-            env('BRANCH', '15.0')
+            env('BRANCH', 'master')
 
             if (arch == 'x86') {
                 env('SETARCH', 'linux32')
@@ -74,7 +74,7 @@ pipelineJob("slackbuilds.org-15.0-shellcheck") {
     description('Run shellcheck on all scripts from slackbuilds.org for 15.0.')
 
     environmentVariables {
-        env('BRANCH', '15.0')
+        env('BRANCH', 'master')
     }
 
     logRotator {
@@ -102,7 +102,7 @@ pipelineJob("slackbuilds.org-15.0-sbolint") {
     description('Run sbolint on all scripts from slackbuilds.org for 15.0.')
 
     environmentVariables {
-        env('BRANCH', '15.0')
+        env('BRANCH', 'master')
     }
 
     logRotator {
