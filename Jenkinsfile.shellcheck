@@ -53,12 +53,10 @@ node('master') {
         def branch = env.BRANCH ?: 'master'
         def gitRepo = env.GIT_REPO ?: 'git://git.slackbuilds.org/slackbuilds.git'
 
-        checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout'], [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']], userRemoteConfigs: [[url: gitRepo]]]
+        checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout']], userRemoteConfigs: [[url: gitRepo]]]
 
-        dir('slackbuilds') {
-            sh(returnStatus: true, script: libraryResource('shellcheck_all_slackbuilds.sh'))
+        sh(returnStatus: true, script: libraryResource('shellcheck_all_slackbuilds.sh'))
 
-            recordIssues blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'shellcheck', name: 'ShellCheck', pattern: 'log/**/*.xml')]
-        }
+        recordIssues blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'shellcheck', name: 'ShellCheck', pattern: 'log/**/*.xml')]
     }
 }
