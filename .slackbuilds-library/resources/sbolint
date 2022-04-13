@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+# note to self: keep this in sync with VER in sbopkglint and VERSION in Makefile.
+$VERSION="0.5";
+
 # ChangeLog:
 
 # 0.4 20220314 bkw: add -a option to check all builds in the git repo.
@@ -23,8 +26,6 @@
 # - Allow scripts to skip lint checks via ###sbolint on/off comments.
 
 # 0.1 20141114 bkw, Initial release.
-
-$VERSION="0.4";
 
 # This script is meant to be fairly self-contained, prefer not to
 # require a huge pile of perl module dependencies. In some cases this
@@ -53,7 +54,7 @@ sbolint - check SlackBuild directories or tarballs for common errors.
 
 =head1 SYNOPSIS
 
-B<sbolint> [-g] [-q] [-u] [-n] [build [build ...]]
+B<sbolint> [-a] [-g] [-q] [-u] [-n] [build [build ...]]
 
 =head1 DESCRIPTION
 
@@ -268,7 +269,7 @@ Probably quite a few. Watch this space for details.
 
 =head1 AUTHOR
 
-B. Watson (yalhcru at gmail dot com, or Urchlay on Libera IRC)
+B. Watson <urchlay@slackware.uk>, aka Urchlay on Libera IRC.
 
 =head1 SEE ALSO
 
@@ -325,6 +326,7 @@ while(@ARGV && ($ARGV[0] =~ /^-/)) {
 	$opt =~ /^--?q(uiet)?/ && do { $quiet = 1; next; };
 	$opt =~ /^-$/ && do { $stdin = 1; next; };
 	$opt =~ /^--?h(elp)?/ && do { usage(); exit 0; };
+	$opt =~ /^--?ver(sion)?/ && do { print "$VERSION\n"; exit 0; };
 	$opt =~ /^-n$/ && do { $nowarn = 1; next; };
 	$opt =~ /^-r$/ && do { $suppress_readme_len = 1; next; };
 	$opt =~ /^--doc$/ && do { exec("perldoc $0"); };
@@ -430,7 +432,7 @@ sub usage {
 
 	warn <<EOF;
 
-$SELF - check SlackBuilds.org scripts for common problems.
+$SELF v$VERSION - check SlackBuilds.org scripts for common problems.
 
 Usage: $SELF [-q] [-u] [-n] [-r] <build <build ...>>
 Usage: $SELF --help | --man
