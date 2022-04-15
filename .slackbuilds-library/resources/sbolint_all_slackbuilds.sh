@@ -3,14 +3,31 @@
 set -e
 set -o pipefail
 
+JENKINSUID=${JENKINSUID:-1000}
+JENKINSGUID=${JENKINSGUID:-1000}
+
+cleanup() {
+  chown -R "$JENKINSUID:$JENKINSGUID" tmp log
+}
+trap "cleanup" SIGINT SIGTERM SIGHUP SIGQUIT EXIT
+
+process_build() {
+  local file="$1"
+
+  mkdir -p log/"$file"
+
+  perl sbolint -q "$file" > log/"$file"/"$(basename "$file")" || true
+}
+export -f process_build
+
 mkdir -p log
 
 # shellcheck disable=SC2016
-find . -name '*.SlackBuild' -printf '%P\n' | xargs -I xx dirname xx | xargs -I xx bash -c 'mkdir -p "log/xx" && perl sbolint -q "xx" > "log/xx/$(basename xx)"' || true
+find . -name '*.SlackBuild' -printf '%P\n' | xargs -I xx dirname xx | parallel process_build
 
 # clear some things for now
-find log -type f | xargs sed -i '/xmind: WARN: README has lines >72 characters/d'
-find log -type f | xargs sed -i '/fuse-overlayfs: WARN: README has lines >72 characters/d'
+find log -type f -print0 | xargs -0 sed -i '/xmind: WARN: README has lines >72 characters/d'
+find log -type f -print0 | xargs -0 sed -i '/fuse-overlayfs: WARN: README has lines >72 characters/d'
 
 find log -empty -type f -delete
 find log -empty -type d -delete

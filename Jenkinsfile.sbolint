@@ -56,10 +56,17 @@ node('master') {
         checkout poll: false, scm: [$class: 'GitSCM', branches: [[name: "*/${branch}"]], extensions: [[$class: 'CleanBeforeCheckout']], userRemoteConfigs: [[url: gitRepo]]]
 
         try {
+            def userId = sh(returnStdout: true, script: '#!/bin/sh -e\nid -u jenkins').trim()
+            def groupId = sh(returnStdout: true, script: '#!/bin/sh -e\nid -g jenkins').trim()
+
             writeFile(file: 'sbolint', text: libraryResource('sbolint'))
 
-            docker.image('perl:5.34.0-bullseye').inside() {
-                sh(returnStatus: true, script: libraryResource('sbolint_all_slackbuilds.sh'))
+            docker.image('perl:5.34.0-bullseye').inside('-u 0') {
+                sh "apt-get update && apt-get install -y parallel"
+
+                withEnv(["JENKINSUID=${userId}", "JENKINSGUID=${groupId}"]) {
+                    sh(returnStatus: true, script: libraryResource('sbolint_all_slackbuilds.sh'))
+                }
             }
         } finally {
             sh('rm sbolint')
