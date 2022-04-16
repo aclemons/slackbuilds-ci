@@ -24,11 +24,15 @@ def libraryPath = '.slackbuilds-library'
 
 node('master') {
     echo "Loading local shared library"
+
     checkout poll: false, changelog: false, scm: scm
+    checkout poll: false, changelog: false, scm: [$class: 'GitSCM', branches: [[name: 'master']], extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'sbo-maintainer-tools']], userRemoteConfigs: [[url: 'https://slackware.uk/~urchlay/repos/sbo-maintainer-tools/']]]
 
     // create new git repo inside jenkins subdirectory
     sh(
         """
+          mv sbo-maintainer-tools/sbolint ${libraryPath}/resources/ &&
+          rm -rf sbo-maintainer-tools && \
           cd $libraryPath && \
           (rm -rf .git 2>&1 > /dev/null || true) && \
           git init && \
