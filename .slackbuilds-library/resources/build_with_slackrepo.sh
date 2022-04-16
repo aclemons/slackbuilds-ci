@@ -3,14 +3,6 @@
 set -e
 set -o pipefail
 
-JENKINSUID=${JENKINSUID:-1000}
-JENKINSGUID=${JENKINSGUID:-1000}
-
-cleanup() {
-  chown -R "$JENKINSUID:$JENKINSGUID" tmp log
-}
-trap "cleanup" SIGINT SIGTERM SIGHUP SIGQUIT EXIT
-
 UPDATE=${UPDATE:-}
 
 if [[ $UPDATE == "true" ]] ; then
