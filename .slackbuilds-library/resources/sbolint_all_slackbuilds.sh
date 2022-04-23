@@ -3,6 +3,14 @@
 set -e
 set -o pipefail
 
+JENKINSUID=${JENKINSUID:-1000}
+JENKINSGUID=${JENKINSGUID:-1000}
+
+cleanup() {
+  chown -R "$JENKINSUID:$JENKINSGUID" log
+}
+trap "cleanup" SIGINT SIGTERM SIGHUP SIGQUIT EXIT
+
 process_build() {
   local file="$1"
 
