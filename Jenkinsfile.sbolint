@@ -74,8 +74,9 @@ node('master') {
             }
         } finally {
             sh('rm sbolint')
-            recordIssues scm: 'slackbuilds.org', blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'sbolint', name: 'sbolint', pattern: 'log/**/*.xml')]
-            archiveArtifacts artifacts: 'log/**/*'
         }
+
+        recordIssues scm: 'slackbuilds.org', blameDisabled: false, enabledForFailure: true, unstableTotalAll: 1, tools: [checkStyle(id: 'sbolint', name: 'sbolint', pattern: 'log/**/*.xml')]
+        archiveArtifacts artifacts: 'log/**/*'
     }
 }
