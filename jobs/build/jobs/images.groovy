@@ -26,32 +26,8 @@
             return
         }
 
-        pipelineJob("docker-${name}-${release}-base") {
-            definition {
-                cpsScm {
-                    lightweight(true)
-
-                    scm {
-                        github('aclemons/slackware-dockerfiles', 'master')
-                    }
-
-                    scriptPath("${name}-${release}/Jenkinsfile")
-                }
-            }
-
-            description("Builds a docker image of a base install of ${name.capitalize()}-${release}.")
-
-            environmentVariables(
-                DOCKER_IMAGE: "aclemons/slackware:${release}-${arch}-base"
-            )
-
-            logRotator {
-                numToKeep(5)
-            }
-
-            properties {
-                disableConcurrentBuilds()
-            }
+        if (arch == 'arm' && release == 'current') {
+            return
         }
 
         pipelineJob("docker-${name}-${release}-full") {
@@ -69,10 +45,12 @@
 
             description("Builds a docker image for using as a build environment for ${name.capitalize()}-${release}.")
 
+
             environmentVariables(
                 DOCKER_IMAGE: "aclemons/slackware:${release}-${arch}-full",
-                BASE_IMAGE: "aclemons/slackware:${release}-${arch}-base",
-                LOCAL_MIRROR: "/var/lib/jenkins/caches/slackware/${name}-${release}"
+                BASE_IMAGE: "ghcr.io/aclemons/slackware:${release}-base",
+                LOCAL_MIRROR: "/var/lib/jenkins/caches/slackware/${name}-${release}",
+                BUILD_PLATFORM: [x86_64: 'linux/amd64', x86: 'linux/386', arm: 'linux/arm', aarch64: 'linux/arm64'][arch],
             )
 
             logRotator {
