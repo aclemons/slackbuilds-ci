@@ -1,6 +1,7 @@
 #!/usr/bin/env groovy
 
 // Copyright 2022 Andrew Clemons, Wellington New Zealand
+// Copyright 2022 Andrew Clemons, Tokyo Japan
 // All rights reserved.
 //
 // Redistribution and use of this script, with or without modification, is
@@ -30,36 +31,19 @@
             return
         }
 
-        pipelineJob("docker-${name}-${release}-full") {
-            definition {
-                cpsScm {
-                    lightweight(true)
-
-                    scm {
-                        github('aclemons/slackware-dockerfiles', 'master')
-                    }
-
-                    scriptPath('Jenkinsfile')
-                }
+        def dockerArch = "linux/${arch}"
+        if (arch == 'x86_64') {
+            dockerArch = "linux/amd64"
+        } else if (arch == 'x86') {
+            dockerArch = "linux/386"
+        } else if (arch == 'arm') {
+            if (arch == 'arm' && release == '15.0') {
+                dockerArch = "linux/arm/v7"
+            } else {
+                dockerArch = "linux/arm/v5"
             }
-
-            description("Builds a docker image for using as a build environment for ${name.capitalize()}-${release}.")
-
-
-            environmentVariables(
-                DOCKER_IMAGE: "aclemons/slackware:${release}-${arch}-full",
-                BASE_IMAGE: "ghcr.io/aclemons/slackware:${release}-base",
-                LOCAL_MIRROR: "/var/lib/jenkins/caches/slackware/${name}-${release}",
-                BUILD_PLATFORM: [x86_64: 'linux/amd64', x86: 'linux/386', arm: 'linux/arm', aarch64: 'linux/arm64'][arch],
-            )
-
-            logRotator {
-                numToKeep(5)
-            }
-
-            properties {
-                disableConcurrentBuilds()
-            }
+        } else if (arch == 'aarch64') {
+            dockerArch = "linux/arm64/v8"
         }
 
         pipelineJob("docker-${name}-${release}-slackrepo") {
@@ -79,8 +63,9 @@
 
             environmentVariables(
                 DOCKER_IMAGE: "aclemons/slackrepo:${release}-${arch}",
-                BASE_IMAGE: "aclemons/slackware:${release}-${arch}-full",
-                NO_CACHE: 'true'
+                BASE_IMAGE: "aclemons/slackware:${release}-full",
+                NO_CACHE: 'true',
+                PLATFORM: "${dockerArch}"
             )
 
             logRotator {
