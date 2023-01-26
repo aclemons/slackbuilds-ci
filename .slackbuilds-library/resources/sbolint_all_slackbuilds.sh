@@ -20,6 +20,7 @@ find . -name '*.SlackBuild' -printf '%P\n' | xargs -I xx dirname xx | parallel p
 # clear some things for now
 find log -type f -print0 | xargs -0 sed -i '/xmind: WARN: README has lines >72 characters/d'
 find log -type f -print0 | xargs -0 sed -i '/fuse-overlayfs: WARN: README has lines >72 characters/d'
+find log -type f -print0 | xargs -0 sed -i '/mumble-server: WARN: README has lines >72 characters/d'
 
 find log -empty -type f -delete
 find log -empty -type d -delete
