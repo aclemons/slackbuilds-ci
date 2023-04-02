@@ -18,9 +18,11 @@ mkdir -p log
 find . -name '*.SlackBuild' -printf '%P\n' | xargs -I xx dirname xx | parallel process_build
 
 # clear some things for now
-find log -type f -print0 | xargs -0 sed -i '/xmind: WARN: README has lines >72 characters/d'
+find log -type f -print0 | xargs -0 sed -i "/JDSP4Linux: WARN: README has lines >72 characters/d"
+find log -type f -print0 | xargs -0 sed -i "/libressl: WARN: README has lines >72 characters/d"
 find log -type f -print0 | xargs -0 sed -i '/fuse-overlayfs: WARN: README has lines >72 characters/d'
 find log -type f -print0 | xargs -0 sed -i '/mumble-server: WARN: README has lines >72 characters/d'
+find log -type f -print0 | xargs -0 sed -i '/xmind: WARN: README has lines >72 characters/d'
 find log -type f -print0 | xargs -0 sed -i "/papirus-icon-theme: ERR: papirus-icon-theme.SlackBuild:[1-9][0-9]*: script installs doinst.sh, but it doesn't exist/d"
 
 find log -empty -type f -delete
