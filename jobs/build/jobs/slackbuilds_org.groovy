@@ -113,3 +113,23 @@ pipelineJob("slackbuilds.org-15.0-sbolint") {
         disableConcurrentBuilds()
     }
 }
+
+pipelineJob("slackbuilds.org-pr-checks") {
+    definition {
+        cpsScm {
+            lightweight(true)
+
+            scm {
+                github('aclemons/slackbuilds-ci', 'master')
+            }
+
+            scriptPath('Jenkinsfile.pr')
+        }
+    }
+
+    description('PR Checks for SlackBuilds.Org on Github')
+
+    properties {
+        disableConcurrentBuilds()
+    }
+}
