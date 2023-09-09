@@ -114,34 +114,27 @@ pipelineJob("slackbuilds.org-15.0-sbolint") {
     }
 }
 
-pipelineJob("slackbuilds.org-pr-check-build-amd64") {
+pipelineJob("slackbuilds.org-pr-check-build-package") {
     triggers {
         genericTrigger {
             genericVariables {
                 genericVariable {
-                    key("action")
-                    value("\$.action")
+                    key("build_arch")
+                    value("\$.build_arch")
                     expressionType("JSONPath") //Optional, defaults to JSONPath
                     regexpFilter("")
                     defaultValue("")
                 }
                 genericVariable {
-                    key("pull_request_number")
-                    value("\$.pull_request.number")
+                    key("gh_pr")
+                    value("\$.gh_pr")
                     expressionType("JSONPath")
                     regexpFilter("")
                     defaultValue("")
                 }
                 genericVariable {
-                    key("comment_body")
-                    value("\$.comment.body")
-                    expressionType("JSONPath")
-                    regexpFilter("")
-                    defaultValue("")
-                }
-                genericVariable {
-                    key("comment_user")
-                    value("\$.comment.user.login")
+                    key("build_package")
+                    value("\$.build_package")
                     expressionType("JSONPath")
                     regexpFilter("")
                     defaultValue("")
@@ -152,8 +145,8 @@ pipelineJob("slackbuilds.org-pr-check-build-amd64") {
             printPostContent(true)
             silentResponse(false)
             shouldNotFlatten(false)
-            regexpFilterText("\$action,\$user,\$comment_body")
-            regexpFilterExpression("^created,aclemons,@sbo-bot: build.*\$")
+            regexpFilterText("\$build_arch,\$gh_pr,\$build_package")
+            regexpFilterExpression("^(x86_64|amd64|i586|arm),[1-9][0-9]*,[a-zA-Z]+/[a-zA-Z0-9\\+\\-]+\$")
         }
     }
 
@@ -169,7 +162,7 @@ pipelineJob("slackbuilds.org-pr-check-build-amd64") {
         }
     }
 
-    description('PR Checks (build amd64) for SlackBuilds.Org on Github')
+    description('PR Checks (build package) for SlackBuilds.Org on Github')
 
     properties {
         disableConcurrentBuilds()

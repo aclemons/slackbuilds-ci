@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -e
+
+entrypoint="/bin/bash"
+arg=""
+
+if [ -z "$build_arch" ] ; then
+  echo "arch?"
+  exit 1
+fi
+
+if [ -z "$build_package" ] ; then
+  echo "package?"
+  exit 1
+fi
+
+if [ "$build_arch" = "i586" ] ; then
+  arg="$entrypoint"
+  entrypoint="linux32"
+  platform="linux/386"
+  shortarch=386
+elif [ "$build_arch" = "x86_64" ] || [ "$build_arch" = "amd64" ] ; then
+  arch=x86_64
+  platform="linux/amd64"
+  shortarch=amd64
+elif [ "$build_arch" = "arm" ] ; then
+  platform="linux/arm/v7"
+  shortarch=arm
+else
+  echo "Unknown arch $build_arch"
+  exit 1
+fi
+
+repo=SBo
+sbo=/var/lib/jenkins/caches/slackrepo/15.0/$repo
+slackrepo=/var/lib/slackrepo/$repo
+slackrepo_image=aclemons/slackrepo:slack-15.0
+
+logs="$sbo/logs-$arch"
+
+git="$(pwd)"
+
+docker pull --quiet --platform "$platform" "$slackrepo_image"
+docker tag "$slackrepo_image" "$slackrepo_image"-$shortarch
+docker image rm "$slackrepo_image"
+
+docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
+
+{
+  echo "# buildpkg $build_arch $build_package"
+  echo '```'
+  docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
+  echo '```'
+} 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | tee build_results

@@ -34,8 +34,8 @@ node('master') {
           cd $libraryPath && \
           (rm -rf .git 2>&1 > /dev/null || true) && \
           git init && \
-          git config --local user.email "slackbuildbot@slackbuilds.org" && \
-          git config --local user.name "slackbuildbot" && \
+          git config --local user.email "sbo-bot@slackbuilds.org" && \
+          git config --local user.name "sbo-bot" && \
           git add --all && \
           git commit -m init
         """
@@ -51,8 +51,29 @@ node('master') {
 }
 
 node('master') {
-    stage('build') {
-        checkout scmGit(branches: [[name: "*/pull-$gh_pr/*"]], extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false)], userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: 'https://github.com/aclemons/-slackbuilds-test.git']])
-        sh 'git rev-parse HEAD'
+    stage('Prepare') {
+        checkout(
+            scmGit(
+                branches: [[name: "*/pull-$gh_pr/*"]],
+                extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
+                userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: 'https://github.com/aclemons/-slackbuilds-test.git']]
+            )
+        )
+    }
+
+    stage('Build') {
+        dir('slackbuilds') {
+            withEnv(["build_arch=$build_arch", "build_package=$build_package"]) {
+                sh(script: libraryResource('buildpkg'))
+            }
+        }
+    }
+
+    stage('Comment') {
+        dir('slackbuilds') {
+            withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
+                sh "gh pr comment --repo=aclemons/-slackbuilds-test $gh_pr --body-file build_results"
+            }
+        }
     }
 }
