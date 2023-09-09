@@ -52,6 +52,7 @@ node('master') {
 
 node('master') {
     stage('build') {
-      // empty for now
+        checkout scmGit(branches: [[name: "*/pull-$gh_pr/*"]], extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false)], userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: 'https://github.com/aclemons/-slackbuilds-test.git']])
+        sh 'git rev-parse HEAD'
     }
 }
