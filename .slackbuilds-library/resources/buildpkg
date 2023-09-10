@@ -52,4 +52,4 @@ docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entryp
   echo '```'
   docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
   echo '```'
-} 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | tee build_results
+} 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee build_results
