@@ -139,14 +139,21 @@ pipelineJob("slackbuilds.org-pr-check-build-package") {
                     regexpFilter("")
                     defaultValue("")
                 }
+                genericVariable {
+                    key("repo")
+                    value("\$.repo")
+                    expressionType("JSONPath")
+                    regexpFilter("")
+                    defaultValue("")
+                }
             }
             tokenCredentialId('generic-webhook')
             printContributedVariables(true)
             printPostContent(true)
             silentResponse(false)
             shouldNotFlatten(false)
-            regexpFilterText("\$build_arch,\$gh_pr,\$build_package")
-            regexpFilterExpression("^(x86_64|amd64|i586|arm),[1-9][0-9]*,[a-zA-Z]+/[a-zA-Z0-9\\+\\-]+\$")
+            regexpFilterText("\$build_arch,\$gh_pr,\$build_package,\$repo")
+            regexpFilterExpression("^(x86_64|amd64|i586|arm),[1-9][0-9]*,[a-zA-Z]+/[a-zA-Z0-9\\+\\-]+,(aclemons|SlackBuildsOrg)/.+\$")
         }
     }
 

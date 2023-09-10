@@ -56,7 +56,7 @@ node('master') {
             scmGit(
                 branches: [[name: "*/pull-$gh_pr/*"]],
                 extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
-                userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: 'https://github.com/SlackBuildsOrg/slackbuilds.git']]
+                userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: "https://github.com/${repo}.git"]]
             )
         )
     }
@@ -72,7 +72,7 @@ node('master') {
     stage('Comment') {
         dir('slackbuilds') {
             withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
-                sh "gh pr comment --repo=SlackBuildsOrg/slackbuilds $gh_pr --body-file build_results"
+                sh "gh pr comment --repo=${repo} $gh_pr --body-file build_results"
             }
         }
     }
