@@ -21,7 +21,7 @@ if [ "$build_arch" = "i586" ] ; then
   platform="linux/386"
   shortarch=386
 elif [ "$build_arch" = "x86_64" ] || [ "$build_arch" = "amd64" ] ; then
-  arch=x86_64
+  build_arch=x86_64
   platform="linux/amd64"
   shortarch=amd64
 elif [ "$build_arch" = "arm" ] ; then
@@ -32,12 +32,13 @@ else
   exit 1
 fi
 
+slackversion=15.0
 repo=SBo
-sbo=/var/lib/jenkins/caches/slackrepo/15.0/$repo
+sbo=/var/lib/jenkins/caches/slackrepo/$slackversion/$repo
 slackrepo=/var/lib/slackrepo/$repo
-slackrepo_image=aclemons/slackrepo:slack-15.0
+slackrepo_image=aclemons/slackrepo:slack-$slackversion
 
-logs="$sbo/logs-$arch"
+logs="$sbo/logs-$build_arch"
 
 git="$(pwd)"
 
@@ -53,3 +54,14 @@ docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entryp
   docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
   echo '```'
 } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee build_results
+
+if grep -q "✅ $build_package" build_results > /dev/null 2>&1 ; then
+  docker pull --quiet --platform "$platform" aclemons/sbo-maintainer-tools:latest-$slackversion
+  docker tag aclemons/sbo-maintainer-tools:latest-$slackversion aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch
+  docker image rm aclemons/sbo-maintainer-tools:latest-$slackversion
+
+  echo "# sbopkglint $build_arch $build_package"
+  echo '```'
+  docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch $arg -l -c "mkdir -p /tmp/SBo && sbopkglint $slackrepo/packages/$slackversion/$build_arch/$build_package/*t?z" || true
+  echo '```'
+fi
