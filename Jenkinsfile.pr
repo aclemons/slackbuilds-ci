@@ -52,13 +52,22 @@ node('master') {
 
 node('master') {
     stage('Prepare') {
-        checkout(
-            scmGit(
-                branches: [[name: "pull-$gh_pr"]],
-                extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
-                userRemoteConfigs: [[name: 'origin', refspec: "+refs/pull/$gh_pr/merge:refs/remotes/origin/pull-$gh_pr", url: "https://github.com/${repo}.git"]]
+        try {
+            checkout(
+                scmGit(
+                    branches: [[name: "pull-$gh_pr"]],
+                    extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
+                    userRemoteConfigs: [[name: 'origin', refspec: "+refs/pull/$gh_pr/merge:refs/remotes/origin/pull-$gh_pr", url: "https://github.com/${repo}.git"]]
+                )
             )
-        )
+        } catch (err) {
+            def text = "# buildpkg $build_arch $build_package\nCannot checkout PR.\n```\n${err.toString()}\n```\n"
+            writeFile(file: 'checkout-error', text: text)
+            withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
+                sh "gh pr comment --repo=${repo} $gh_pr --body-file checkout-error"
+            }
+            throw err
+        }
     }
 
     stage('Build') {
