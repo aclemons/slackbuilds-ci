@@ -70,12 +70,10 @@ node('master') {
     }
 
     stage('Comment') {
-        dir('slackbuilds') {
-            withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
-                sh "gh pr comment --repo=${repo} $gh_pr --body-file build_results"
+        withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
+            sh "gh pr comment --repo=${repo} $gh_pr --body-file build_results"
 
-                sh "if [ -e lint_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file lint_results ; fi"
-            }
+            sh "if [ -e lint_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file lint_results ; fi"
         }
     }
 }
