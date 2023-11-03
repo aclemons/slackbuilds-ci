@@ -54,9 +54,9 @@ node('master') {
     stage('Prepare') {
         checkout(
             scmGit(
-                branches: [[name: "*/pull-$gh_pr/*"]],
+                branches: [[name: "pull-$gh_pr"]],
                 extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
-                userRemoteConfigs: [[name: 'origin', refspec: '+refs/pull/*:refs/remotes/origin/pull-*', url: "https://github.com/${repo}.git"]]
+                userRemoteConfigs: [[name: 'origin', refspec: "+refs/pull/$gh_pr/merge:refs/remotes/origin/pull-$gh_pr", url: "https://github.com/${repo}.git"]]
             )
         )
     }
