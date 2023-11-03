@@ -65,5 +65,5 @@ if grep -q "✅ $build_package" build_results > /dev/null 2>&1 ; then
     echo '```'
     docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch $arg -l -c "mkdir -p /tmp/SBo && sbopkglint $slackrepo/packages/$slackversion/$build_arch/$build_package/*t?z" || true
     echo '```'
-  } 2>&1 | sed 's/slackrepo/repo/g' | sed "/All tests passed/s/$/✅/" | sed "/!!!/s/$/⛔️/" | tee ../lint_results
+  } 2>&1 | sed 's/slackrepo/repo/g' | sed "/All tests passed/s/^\(.*\)$/✅ \1 ✅/" | sed "/!!!/s/^\(.*\)$/⛔️ \1 ⛔️/" | tee ../lint_results
 fi
