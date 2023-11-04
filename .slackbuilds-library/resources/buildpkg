@@ -60,6 +60,21 @@ if [ "$action" = "build" ] ; then
     docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
     echo '```'
   } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee ../build_results
+
+  if ! grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
+    {
+      echo ""
+      echo "## Snipped Build Failure"
+      echo ""
+      echo "<details>"
+      echo ""
+      echo '```'
+      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | head -n 250
+      echo '```'
+      echo ""
+      echo "</details>"
+    } | tee -a ../build_results
+  fi
 fi
 
 if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
