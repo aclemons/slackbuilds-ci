@@ -61,7 +61,7 @@ if [ "$action" = "build" ] ; then
     echo '```'
   } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee ../build_results
 
-  if ! grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
+  if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
     {
       echo ""
       echo "## Snipped Build Failure"
