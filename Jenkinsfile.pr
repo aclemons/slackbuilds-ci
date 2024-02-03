@@ -78,6 +78,12 @@ node('master') {
                 withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
                     sh "gh pr comment --repo=${repo} $gh_pr --body-file checkout-error"
                 }
+            } else if ("$gl_mr".toInteger() > 0) {
+                def text = "# buildpkg $build_arch $build_package\nCannot checkout MR.\n```\n${err.toString()}\n```\n"
+                writeFile(file: 'checkout-error', text: text)
+                withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
+                    sh "glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat checkout-error)\""
+                }
             }
             throw err
         }
