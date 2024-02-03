@@ -97,6 +97,11 @@ node('master') {
                 sh "if [ -e build_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file build_results ; fi"
                 sh "if [ -e lint_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file lint_results ; fi"
             }
+        } else if ("$gl_mr".toInteger() > 0) {
+            withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
+                sh "if [ -e build_results ] ; then glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat build_results)\" ; fi"
+                sh "if [ -e lint_results ] ; then glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat lint_results)\" ; fi"
+            }
         }
     }
 }
