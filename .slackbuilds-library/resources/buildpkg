@@ -82,16 +82,26 @@ if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /de
   docker tag aclemons/sbo-maintainer-tools:latest-$slackversion aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch
   docker image rm aclemons/sbo-maintainer-tools:latest-$slackversion
 
+  if ls "$slackrepo/packages/$slackversion/$build_arch/$build_package/"*.dep > /dev/null 2>&1 ; then
+    echo ""
+  fi
+
   mkdir -p ../helper
   cat << EOF > ../helper/run_lint
+#!/bin/bash
+
 set -e
 mkdir -p /tmp/SBo
-cat $slackrepo/packages/$slackversion/$build_arch/$build_package/*.dep | while read -r dep ; do
-  echo "Installing dependency: \$dep"
-  dep_dir="\$(find $slackrepo/packages/$slackversion/$build_arch/ -name "\$dep" -type d)"
-  TERSE=0 installpkg "\$dep_dir/*t?z"
-  echo ""
-done
+depfiles=($slackrepo/packages/$slackversion/$build_arch/$build_package/*.dep)
+[ "\${#depfiles[@]}" -ge 2 ] && exit 1
+if [ -e "\${depfiles[0]}" ] ; then
+  cat "\${depfiles[0]}" | while read -r dep ; do
+    echo "Installing dependency: \$dep"
+    dep_dir="\$(find $slackrepo/packages/$slackversion/$build_arch/ -name "\$dep" -type d)"
+    TERSE=0 installpkg "\$dep_dir/*t?z"
+    echo ""
+  done
+fi
 
 sbopkglint $slackrepo/packages/$slackversion/$build_arch/$build_package/*t?z
 EOF
