@@ -133,6 +133,13 @@ pipelineJob("slackbuilds.org-pr-check-build-package") {
                     defaultValue("-1")
                 }
                 genericVariable {
+                    key("gh_issue")
+                    value("\$.gh_issue")
+                    expressionType("JSONPath")
+                    regexpFilter("")
+                    defaultValue("-1")
+                }
+                genericVariable {
                     key("gl_mr")
                     value("\$.gl_mr")
                     expressionType("JSONPath")
@@ -166,8 +173,8 @@ pipelineJob("slackbuilds.org-pr-check-build-package") {
             printPostContent(true)
             silentResponse(false)
             shouldNotFlatten(false)
-            regexpFilterText("\$action,\$build_arch,\$gl_mr,\$gh_pr,\$build_package,\$repo")
-            regexpFilterExpression("^(build|lint),(x86_64|amd64|i586|arm),-?[1-9][0-9]*,-*[1-9][0-9]*,[a-zA-Z]+/[a-zA-Z0-9\\+\\-\\._]+,(aclemons|SlackBuildsOrg|SlackBuilds\\.org)/.+\$")
+            regexpFilterText("\$action,\$build_arch,\$gl_mr,\$gh_pr,\$gh_issue,\$build_package,\$repo")
+            regexpFilterExpression("^(build|lint),(x86_64|amd64|i586|arm),-?[1-9][0-9]*,-*[1-9][0-9]*,-*[1-9][0-9]*,(all|[a-zA-Z]+/[a-zA-Z0-9\\+\\-\\._]+),(aclemons|SlackBuildsOrg|SlackBuilds\\.org)/.+\$")
         }
     }
 

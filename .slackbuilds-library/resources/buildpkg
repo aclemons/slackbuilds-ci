@@ -51,43 +51,54 @@ docker pull --quiet --platform "$platform" "$slackrepo_image"
 docker tag "$slackrepo_image" "$slackrepo_image"-$shortarch
 docker image rm "$slackrepo_image"
 
-docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
+if [ "$build_package" != "all" ] ; then
+  docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
+fi
 
 if [ "$action" = "build" ] ; then
   {
     echo "# buildpkg $build_arch $build_package"
     echo '```'
-    docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
+    if [ "$build_package" = "all" ] ; then
+      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build"
+    else
+      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
+    fi
     echo '```'
   } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee ../build_results
 
-  if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
-    {
-      echo ""
-      echo "## Snipped Build Failure"
-      echo ""
-      echo "<details>"
-      echo ""
-      echo '```'
-      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
-      echo '```'
-      echo ""
-      echo "</details>"
-    } | tee -a ../build_results
+  if [ "$build_package" = "all" ] ; then
+    sed -i -n '/^SUMMARY/,$p' ../build_results
+  else
+    if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
+      {
+        echo ""
+        echo "## Snipped Build Failure"
+        echo ""
+        echo "<details>"
+        echo ""
+        echo '```'
+        docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
+        echo '```'
+        echo ""
+        echo "</details>"
+      } | tee -a ../build_results
+    fi
   fi
 fi
 
-if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
-  docker pull --quiet --platform "$platform" aclemons/sbo-maintainer-tools:latest-$slackversion
-  docker tag aclemons/sbo-maintainer-tools:latest-$slackversion aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch
-  docker image rm aclemons/sbo-maintainer-tools:latest-$slackversion
+if [ "$build_package" != "all" ] ; then
+  if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
+    docker pull --quiet --platform "$platform" aclemons/sbo-maintainer-tools:latest-$slackversion
+    docker tag aclemons/sbo-maintainer-tools:latest-$slackversion aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch
+    docker image rm aclemons/sbo-maintainer-tools:latest-$slackversion
 
-  if ls "$slackrepo/packages/$slackversion/$build_arch/$build_package/"*.dep > /dev/null 2>&1 ; then
-    echo ""
-  fi
+    if ls "$slackrepo/packages/$slackversion/$build_arch/$build_package/"*.dep > /dev/null 2>&1 ; then
+      echo ""
+    fi
 
-  mkdir -p ../helper
-  cat << EOF > ../helper/run_lint
+    mkdir -p ../helper
+    cat << EOF > ../helper/run_lint
 #!/bin/bash
 
 set -e
@@ -105,13 +116,14 @@ fi
 
 sbopkglint $slackrepo/packages/$slackversion/$build_arch/$build_package/*t?z
 EOF
-  chmod 0755 ../helper/run_lint
+    chmod 0755 ../helper/run_lint
 
-  {
-    echo "# sbopkglint $build_arch $build_package"
-    echo '```'
-    docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$(dirname "$(pwd)")/helper/:/tmp/helper" aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch $arg -l -c "/tmp/helper/run_lint" || true
-    rm -rf ../helper
-    echo '```'
-  } 2>&1 | sed 's/slackrepo/repo/g' | sed "/All tests passed/s/^\(.*\)$/✅ \1 ✅/" | sed "/\!\!\!/s/^\(.*\)$/⛔️ \1 ⛔️/" | tee ../lint_results
+    {
+      echo "# sbopkglint $build_arch $build_package"
+      echo '```'
+      docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$(dirname "$(pwd)")/helper/:/tmp/helper" aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch $arg -l -c "/tmp/helper/run_lint" || true
+      rm -rf ../helper
+      echo '```'
+    } 2>&1 | sed 's/slackrepo/repo/g' | sed "/All tests passed/s/^\(.*\)$/✅ \1 ✅/" | sed "/\!\!\!/s/^\(.*\)$/⛔️ \1 ⛔️/" | tee ../lint_results
+  fi
 fi
