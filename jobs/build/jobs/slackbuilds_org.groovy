@@ -174,7 +174,7 @@ pipelineJob("slackbuilds.org-pr-check-build-package") {
             silentResponse(false)
             shouldNotFlatten(false)
             regexpFilterText("\$action,\$build_arch,\$gl_mr,\$gh_pr,\$gh_issue,\$build_package,\$repo")
-            regexpFilterExpression("^(build|lint),(x86_64|amd64|i586|arm),-?[1-9][0-9]*,-*[1-9][0-9]*,-*[1-9][0-9]*,(all|[a-zA-Z]+/[a-zA-Z0-9\\+\\-\\._]+),(aclemons|SlackBuildsOrg|SlackBuilds\\.org)/.+\$")
+            regexpFilterExpression("^(build|rebuild|lint),(x86_64|amd64|i586|arm),-?[1-9][0-9]*,-*[1-9][0-9]*,-*[1-9][0-9]*,(all|[a-zA-Z]+/[a-zA-Z0-9\\+\\-\\._]+),(aclemons|SlackBuildsOrg|SlackBuilds\\.org)/.+\$")
         }
     }
 

@@ -55,14 +55,14 @@ if [ "$build_package" != "all" ] ; then
   docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
 fi
 
-if [ "$action" = "build" ] ; then
+if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
   {
     echo "# buildpkg $build_arch $build_package"
     echo '```'
     if [ "$build_package" = "all" ] ; then
-      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build"
+      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action"
     else
-      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo build $build_package"
+      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action $build_package"
     fi
     echo '```'
   } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee ../build_results
