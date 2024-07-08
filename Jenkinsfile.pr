@@ -77,6 +77,14 @@ node('master') {
                         userRemoteConfigs: [[name: 'origin', url: "https://github.com/${repo}.git"]]
                     )
                 )
+            } else if ("$gl_issue".toInteger() > 0) {
+                checkout(
+                    scmGit(
+                        branches: [[name: "master"]],
+                        extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
+                        userRemoteConfigs: [[name: 'origin', url: "https://gitlab.com/${repo}.git"]]
+                    )
+                )
             }
 
         } catch (err) {
@@ -92,11 +100,17 @@ node('master') {
                 withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
                     sh "glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat checkout-error)\""
                 }
-            } else if ("$gl_issue".toInteger() > 0) {
-                def text = "# buildpkg $build_arch $build_package\nCannot checkout PR.\n```\n${err.toString()}\n```\n"
+            } else if ("$gh_issue".toInteger() > 0) {
+                def text = "# buildpkg $build_arch $build_package\nCannot checkout master.\n```\n${err.toString()}\n```\n"
                 writeFile(file: 'checkout-error', text: text)
                 withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
                     sh "gh issue comment --repo=${repo} $gh_pr --body-file checkout-error"
+                }
+            } else if ("$gl_issue".toInteger() > 0) {
+                def text = "# buildpkg $build_arch $build_package\nCannot checkout master.\n```\n${err.toString()}\n```\n"
+                writeFile(file: 'checkout-error', text: text)
+                withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
+                    sh "glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat checkout-error)\""
                 }
             }
             throw err
@@ -125,6 +139,11 @@ node('master') {
         } else if ("$gh_issue".toInteger() > 0) {
             withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
                 sh "if [ -e build_results ] ; then gh issue comment --repo=${repo} $gh_issue --body-file build_results ; fi"
+            }
+        } else if ("$gl_issue".toInteger() > 0) {
+            withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
+                sh "if [ -e build_results ] ; then glab issue --repo ${repo} comment $gl_issue --message \"\$(cat build_results)\" ; fi"
+                sh "if [ -e lint_results ] ; then glab issue --repo ${repo} comment $gl_issue --message \"\$(cat lint_results)\" ; fi"
             }
         }
     }
