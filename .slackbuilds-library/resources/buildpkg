@@ -56,13 +56,18 @@ if [ "$build_package" != "all" ] ; then
 fi
 
 if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
+  # allow mounting loopback devices, e.g.
+  # https://github.com/SlackBuildsOrg/slackbuilds/blob/84cbf1cf8caa7e0b9a925644b87da701377185eb/misc/yubioath-desktop/yubioath-desktop.SlackBuild#L79
+  loopback_devices="$(find /dev/ -name 'loop*' -print | sed 's/^/--device /g' | paste -d' ' -s)"
   {
     if [ "$build_package" = "all" ] ; then
-      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action"
+      # shellcheck disable=SC2086
+      docker run --rm --cap-add SYS_ADMIN $loopback_devices --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action"
     else
       echo "# buildpkg $build_arch $build_package"
       echo '```'
-      docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action $build_package"
+      # shellcheck disable=SC2086
+      docker run --rm --cap-add SYS_ADMIN $loopback_devices --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "git config --global --add safe.directory /var/lib/slackrepo/SBo/slackbuilds && slackrepo $action $build_package"
     fi
     echo '```'
   } 2>&1 | sed 's/slackrepo/repo/g' | sed '/mount: /d' | sed "/^:-)/s/^:-) \(.*\) (-:$/✅ \1 ✅/" | sed "/^:-(/s/^:-( \(.*\) )-:$/⛔️ \1 ⛔️/" | tee ../build_results
