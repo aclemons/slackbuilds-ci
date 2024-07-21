@@ -52,7 +52,7 @@ docker tag "$slackrepo_image" "$slackrepo_image"-$shortarch
 docker image rm "$slackrepo_image"
 
 if [ "$build_package" != "all" ] ; then
-  docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
+  docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
 fi
 
 if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
@@ -85,7 +85,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
         echo "<details>"
         echo ""
         echo '```'
-        docker run --rm --cap-add SYS_ADMIN --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
+        docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
         echo '```'
         echo ""
         echo "</details>"
