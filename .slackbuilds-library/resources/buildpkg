@@ -82,20 +82,22 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
     } | tee ../build_results.new
     mv ../build_results.new ../build_results
   else
-    if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
-      {
-        echo ""
+    {
+      echo ""
+      if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
         echo "## Snipped Build Failure"
-        echo ""
-        echo "<details>"
-        echo ""
-        echo '```'
-        docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
-        echo '```'
-        echo ""
-        echo "</details>"
-      } | tee -a ../build_results
-    fi
+      else
+        echo "## Snipped Build Log"
+      fi
+      echo ""
+      echo "<details>"
+      echo ""
+      echo '```'
+      docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250
+      echo '```'
+      echo ""
+      echo "</details>"
+    } | tee -a ../build_results
   fi
 fi
 
