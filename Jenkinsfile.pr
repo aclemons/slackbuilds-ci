@@ -85,6 +85,16 @@ node('master') {
                         userRemoteConfigs: [[name: 'origin', url: "https://gitlab.com/${repo}.git"]]
                     )
                 )
+            } else if ("$sbo_branch" != "") {
+                checkout(
+                    changelog: false, poll: false,
+                    scm: scmGit(
+                        branches: [[name: "$sbo_branch"]],
+                        browser: cgit('https://git.slackbuilds.org/slackbuilds/'),
+                        extensions: [checkoutOption(), cloneOption(depth: 1, honorRefspec: true, noTags: true, reference: '', shallow: false), [$class: 'RelativeTargetDirectory', relativeTargetDir: 'slackbuilds']],
+                        userRemoteConfigs: [[refspec: "+refs/heads/$sbo_branch:refs/remotes/origin/$sbo_branch", url: 'git://git.slackbuilds.org/slackbuilds.git']]
+                    )
+                )
             }
 
         } catch (err) {
@@ -111,6 +121,16 @@ node('master') {
                 writeFile(file: 'checkout-error', text: text)
                 withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
                     sh "glab mr --repo ${repo} comment $gl_mr --unique=false --message \"\$(cat checkout-error)\""
+                }
+            } else if ("$sbo_branch" != "") {
+                def text = "# buildpkg $build_arch $build_package\nCannot checkout $sbo_branch.\n```\n${err.toString()}\n```\n"
+                writeFile(file: 'checkout-error', text: text)
+
+                checkoutError = sh(returnStdout: true, script: "cat checkout-error").trim()
+
+                withCredentials([string(credentialsId: 'sbo-emails', variable: 'SBO_EMAILS')]) {
+                    def emailMap = readJSON text: env.SBO_EMAILS
+                    mail body: buildResults + lintResults, subject: "$build_package Result", to: emailMap["$sbo_branch"]
                 }
             }
             throw err
@@ -144,6 +164,14 @@ node('master') {
             withCredentials([string(credentialsId: 'sbo-bot-gitlab', variable: 'GITLAB_TOKEN')]) {
                 sh "if [ -e build_results ] ; then glab issue --repo ${repo} comment $gl_issue --message \"\$(cat build_results)\" ; fi"
                 sh "if [ -e lint_results ] ; then glab issue --repo ${repo} comment $gl_issue --message \"\$(cat lint_results)\" ; fi"
+            }
+        } else if ("$sbo_branch" != "") {
+            buildResults = sh(returnStdout: true, script: "if [ -e build_results ] ; then cat build_results ; fi").trim()
+            lintResults = sh(returnStdout: true, script: "if [ -e lint_results ] ; then cat lint_results ; fi").trim()
+
+            withCredentials([string(credentialsId: 'sbo-emails', variable: 'SBO_EMAILS')]) {
+                def emailMap = readJSON text: env.SBO_EMAILS
+                mail body: buildResults + lintResults, subject: "$build_package Result", to: emailMap["$sbo_branch"]
             }
         }
     }
