@@ -130,7 +130,7 @@ node('master') {
 
                 withCredentials([string(credentialsId: 'sbo-emails', variable: 'SBO_EMAILS')]) {
                     def emailMap = readJSON text: env.SBO_EMAILS
-                    mail body: buildResults + lintResults, subject: "$build_package Result", to: emailMap["$sbo_branch"]
+                    mail body: checkoutError, subject: "$build_package Result", to: emailMap["$sbo_branch"]
                 }
             }
             throw err
