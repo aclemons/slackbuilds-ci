@@ -148,7 +148,6 @@ node('master') {
     stage('Comment') {
         if ("$gh_pr".toInteger() > 0) {
             withCredentials([usernamePassword(credentialsId: 'sbo-bot', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'IGNORED')]) {
-                sh "if [ -e build_results ] ; then cut -z -c 1-65536 build_results > build_results.trunc ; mv build_results.trunc build_results ; fi"
                 sh "if [ -e build_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file build_results ; fi"
                 sh "if [ -e lint_results ] ; then gh pr comment --repo=${repo} $gh_pr --body-file lint_results ; fi"
             }
