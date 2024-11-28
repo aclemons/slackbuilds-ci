@@ -99,7 +99,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
       echo "<details>"
       echo ""
       echo '```'
-      docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250 | cut -b -60000 | iconv -c -t UTF-8
+      docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250 | cut -c -40000 | iconv -c -t UTF-8
       echo '```'
       echo ""
       echo "</details>"
