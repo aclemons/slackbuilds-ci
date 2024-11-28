@@ -88,22 +88,39 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
     } | tee ../build_results.new
     mv ../build_results.new ../build_results
   else
-    {
-      echo ""
-      if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
-        echo "## Snipped Build Failure"
+    cp ../build_results ../build_results.base
+    keep=50000
+    # shellcheck disable=SC2159
+    while [ 0 ] ; do
+      cp ../build_results.base ../build_results
+      {
+        echo ""
+        if grep -q "⛔️ $build_package" ../build_results > /dev/null 2>&1 ; then
+          echo "## Snipped Build Failure"
+        else
+          echo "## Snipped Build Log"
+        fi
+        echo ""
+        echo "<details>"
+        echo ""
+        echo '```'
+        docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -c"$keep" | iconv -c -t UTF-8
+        echo '```'
+        echo ""
+        echo "</details>"
+      } | tee -a ../build_results
+
+      if [ "$(< ../build_results wc -c)" -gt 65536 ] ; then
+        keep=$(( keep - 10000 ))
+
+        if [ $keep -lt 0 ] ; then
+          keep=1
+        fi
       else
-        echo "## Snipped Build Log"
+        rm ../build_results.base
+        break
       fi
-      echo ""
-      echo "<details>"
-      echo ""
-      echo '```'
-      docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "cat /var/log/slackrepo/SBo/$build_package/build.log" | sed 's/slackrepo/repo/g' | tail -n 250 | cut -c -40000 | iconv -c -t UTF-8
-      echo '```'
-      echo ""
-      echo "</details>"
-    } | tee -a ../build_results
+    done
   fi
 fi
 
