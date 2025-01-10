@@ -35,7 +35,7 @@ node('master') {
           rm -rf sbo-maintainer-tools && \
           cd $libraryPath && \
           (rm -rf .git 2>&1 > /dev/null || true) && \
-          git init && \
+          git init --initial-branch=master && \
           git config --local user.email "slackbuildbot@slackbuilds.org" && \
           git config --local user.name "slackbuildbot" && \
           git add --all && \
