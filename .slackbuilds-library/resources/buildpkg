@@ -126,6 +126,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
 
           if [ $keep -lt 0 ] ; then
             # this is going to also fail with payload too large
+            rm ../build_results.base
             break
           fi
         else
