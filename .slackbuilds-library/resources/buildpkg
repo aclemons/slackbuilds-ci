@@ -114,7 +114,8 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
         keep=$(( keep - 1000 ))
 
         if [ $keep -lt 0 ] ; then
-          keep=1
+          # this is going to also fail with payload too large
+          break
         fi
       else
         rm ../build_results.base
