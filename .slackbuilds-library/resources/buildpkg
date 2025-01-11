@@ -90,6 +90,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
   else
     # check if the base output is already too long
     if [ "$(< ../build_results wc -c)" -gt 65536 ] ; then
+      cp ../build_results ../build_results.full
       sed -i -n '/^SUMMARY/,$p' ../build_results
       {
         echo "# buildpkg $build_arch $build_package"
@@ -139,7 +140,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
 fi
 
 if [ "$build_package" != "all" ] ; then
-  if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 ; then
+  if [ "$action" = "lint" ] || grep -q "✅ $build_package" ../build_results > /dev/null 2>&1 || { [ -e ../build_results.full ] && grep -q "✅ $build_package" ../build_results.full > /dev/null 2>&1 ; } ; then
     docker pull --quiet --platform "$platform" aclemons/sbo-maintainer-tools:latest-$slackversion
     docker tag aclemons/sbo-maintainer-tools:latest-$slackversion aclemons/sbo-maintainer-tools:latest-$slackversion-$shortarch
     docker image rm aclemons/sbo-maintainer-tools:latest-$slackversion
