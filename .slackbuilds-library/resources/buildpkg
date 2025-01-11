@@ -111,7 +111,7 @@ if [ "$action" = "build" ] || [ "$action" = "rebuild" ]; then
       } | tee -a ../build_results
 
       if [ "$(< ../build_results wc -c)" -gt 65536 ] ; then
-        keep=$(( keep - 10000 ))
+        keep=$(( keep - 1000 ))
 
         if [ $keep -lt 0 ] ; then
           keep=1
