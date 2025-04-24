@@ -208,5 +208,15 @@ pipelineJob("slackbuilds.org-pr-check-build-package") {
 
     properties {
         disableConcurrentBuilds()
+        buildDiscarder {
+            strategy {
+                logRotator {
+                    daysToKeepStr('365')
+                    artifactDaysToKeepStr('365')
+                    numToKeepStr('1000')
+                    artifactNumToKeepStr('1000')
+                }
+            }
+        }
     }
 }
