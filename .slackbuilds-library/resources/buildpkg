@@ -59,7 +59,7 @@ docker image rm "$slackrepo_image"
 
 case "$build_package" in
   # don't clear anything for these
-  development/stm32cubeide|development/stm32cubeprog|all)
+  development/stm32cubeide|development/stm32cubeprog|multimedia/sonivox|all)
     ;;
   *)
     docker run --rm --platform "$platform" --entrypoint "$entrypoint" -v "$sbo":"$slackrepo" -v "$logs":/var/log/slackrepo -v "$git":"$slackrepo/slackbuilds" "$slackrepo_image"-$shortarch $arg -l -c "rm -rf $slackrepo/.lock && rm -rf $slackrepo/source/$build_package"
