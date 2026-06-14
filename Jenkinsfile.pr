@@ -130,8 +130,12 @@ node('master') {
                 def text = "# buildpkg $build_arch $build_package\nCannot checkout PR.\n```\n${err.toString()}\n```\n"
                 writeFile(file: 'checkout-error', text: text)
 
-                withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'FORGEJO_TOKEN')]) {
-                    sh "fj -H https://codeberg.org issue comment --body-file checkout-error $cb_pr -R ${repo}"
+                def (repoOwner, repoName) = repo.tokenize('/')
+                def payload = groovy.json.JsonOutput.toJson([body: readFile('checkout-error')])
+                writeFile(file: 'codeberg-comment.json', text: payload)
+
+                withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'CODEBERG_TOKEN')]) {
+                    sh "curl --silent --show-error --fail --request POST --header \"Authorization: token $CODEBERG_TOKEN\" --header \"Content-Type: application/json\" --data-binary @codeberg-comment.json https://codeberg.org/api/v1/repos/${repoOwner}/${repoName}/issues/$cb_pr/comments"
                 }
             } else if ("$gh_issue".toInteger() > 0) {
                 def text = "# buildpkg $build_arch $build_package\nCannot checkout master.\n```\n${err.toString()}\n```\n"
@@ -149,8 +153,12 @@ node('master') {
                 def text = "# buildpkg $build_arch $build_package\nCannot checkout master.\n```\n${err.toString()}\n```\n"
                 writeFile(file: 'checkout-error', text: text)
 
-                withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'FORGEJO_TOKEN')]) {
-                    sh "fj -H https://codeberg.org issue comment --body-file checkout-error $cb_issue -R ${repo}"
+                def (repoOwner, repoName) = repo.tokenize('/')
+                def payload = groovy.json.JsonOutput.toJson([body: readFile('checkout-error')])
+                writeFile(file: 'codeberg-comment.json', text: payload)
+
+                withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'CODEBERG_TOKEN')]) {
+                    sh "curl --silent --show-error --fail --request POST --header \"Authorization: token $CODEBERG_TOKEN\" --header \"Content-Type: application/json\" --data-binary @codeberg-comment.json https://codeberg.org/api/v1/repos/${repoOwner}/${repoName}/issues/$cb_issue/comments"
                 }
             } else if ("$sbo_branch" != "") {
                 def text = "# buildpkg $build_arch $build_package\nCannot checkout $sbo_branch.\n```\n${err.toString()}\n```\n"
@@ -199,11 +207,11 @@ node('master') {
         } else if ("$cb_pr".toInteger() > 0) {
             withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'FORGEJO_TOKEN')]) {
                 if (fileExists('build_results')) {
-                    sh "fj -H https://codeberg.org issue comment --body-file build_results $cb_pr -R ${repo}"
+                    sh "cd slackbuilds && fj -H https://codeberg.org issue comment --body-file ../build_results $cb_pr"
                 }
 
                 if (fileExists('lint_results')) {
-                    sh "fj -H https://codeberg.org issue comment --body-file lint_results $cb_pr -R ${repo}"
+                    sh "cd slackbuilds && fj -H https://codeberg.org issue comment --body-file ../lint_results $cb_pr"
                 }
             }
         } else if ("$gh_issue".toInteger() > 0) {
@@ -225,11 +233,11 @@ node('master') {
         } else if ("$cb_issue".toInteger() > 0) {
             withCredentials([string(credentialsId: 'sbo-bot-codeberg', variable: 'FORGEJO_TOKEN')]) {
                 if (fileExists('build_results')) {
-                    sh "fj -H https://codeberg.org issue comment --body-file build_results $cb_issue -R ${repo}"
+                    sh "cd slackbuilds && fj -H https://codeberg.org issue comment --body-file ../build_results $cb_issue"
                 }
 
                 if (fileExists('lint_results')) {
-                    sh "fj -H https://codeberg.org issue comment --body-file lint_results $cb_issue -R ${repo}"
+                    sh "cd slackbuilds && fj -H https://codeberg.org issue comment --body-file ../lint_results $cb_issue"
                 }
             }
         } else if ("$sbo_branch" != "") {
