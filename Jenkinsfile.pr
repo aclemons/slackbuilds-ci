@@ -30,7 +30,7 @@ def codebergComment = { String repoDir, String repo, String issue, String bodyFi
                             fj_data_home=\$(mktemp -d)
                             trap 'rm -rf "\$fj_data_home"' EXIT INT TERM
                             export XDG_DATA_HOME="\$fj_data_home"
-                            echo "\$FORGEJO_TOKEN" | fj -H https://codeberg.org auth add-key sbo-bot
+                            echo "\$FORGEJO_TOKEN" | fj -H https://codeberg.org auth add-token
 
                             if [ "$initialiseRepo" = "true" ] ; then
                                 rm -rf "$repoDir"
