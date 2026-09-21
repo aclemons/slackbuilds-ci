@@ -192,7 +192,7 @@ node('master') {
     stage('Build') {
         dir('slackbuilds') {
             withEnv(["build_arch=$build_arch", "build_package=$build_package", "action=$action"]) {
-                // currently qt is the longest build at a bit over 3 hours
+                // currently qt6 is the longest build at a bit over 3 hours
                 def timeoutHours = (build_package == "all") ? 30 : 4
 
                 timeout(time: timeoutHours, unit: 'HOURS') {
