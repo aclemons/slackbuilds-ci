@@ -193,7 +193,7 @@ node('master') {
         dir('slackbuilds') {
             withEnv(["build_arch=$build_arch", "build_package=$build_package", "action=$action"]) {
                 // currently qt6 is the longest build at a bit over 3 hours
-                def timeoutHours = (build_package == "all") ? 30 : 4
+                def timeoutHours = (build_package == "all") ? 30 : ((build_package == "development/zig" && build_arch == "i586") ? 8 : 4)
 
                 timeout(time: timeoutHours, unit: 'HOURS') {
                     sh(script: libraryResource('buildpkg'))
